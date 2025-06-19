@@ -969,10 +969,8 @@ FROM product_categories pc
          LEFT JOIN product_categories parent ON pc.parent_id = parent.id
 WHERE pc.status = 1;
 
-SELECT *
-FROM product_category_view;
-
 -- Bảng tags/nhãn sản phẩm
+DROP TABLE IF EXISTS product_tags;
 CREATE TABLE product_tags
 (
     id         INT PRIMARY KEY AUTO_INCREMENT,
@@ -1022,19 +1020,21 @@ CREATE TABLE product_tag_map
 DROP TABLE IF EXISTS product_packages;
 CREATE TABLE product_packages
 (
-    id            INT PRIMARY KEY AUTO_INCREMENT,
-    product_id    INT            NOT NULL,
-    name          VARCHAR(255)   NOT NULL,
-    description   TEXT,
-    price         DECIMAL(15, 2) NOT NULL,
-    old_price     DECIMAL(15, 2),
-    duration_days INT,
-    percent_off   DECIMAL(5, 2) GENERATED ALWAYS AS (
+    id             INT PRIMARY KEY AUTO_INCREMENT,
+    product_id     INT            NOT NULL,
+    name           VARCHAR(255)   NOT NULL,
+    description    TEXT,
+    price          DECIMAL(15, 2) NOT NULL,
+    old_price      DECIMAL(15, 2),
+    duration_days  INT,
+    percent_off    DECIMAL(5, 2) GENERATED ALWAYS AS (
         IF(old_price IS NOT NULL AND old_price > 0 AND price < old_price, 100 * (old_price - price) / old_price, 0)
         ) STORED,
-    status        TINYINT(1) DEFAULT 1,
-    created_at    TIMESTAMP  DEFAULT CURRENT_TIMESTAMP,
-    updated_at    TIMESTAMP  DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    stock_quantity INT        DEFAULT 0 COMMENT 'Số lượng tồn kho còn lại',
+    sold_count     INT        DEFAULT 0 COMMENT 'Số lượng đã bán',
+    status         TINYINT(1) DEFAULT 1,
+    created_at     TIMESTAMP  DEFAULT CURRENT_TIMESTAMP,
+    updated_at     TIMESTAMP  DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (product_id) REFERENCES product_details (id) ON DELETE CASCADE,
     INDEX idx_product (product_id),
     INDEX idx_name (name),
@@ -1167,5 +1167,158 @@ CREATE TABLE product_related
     FOREIGN KEY (related_product_id) REFERENCES product_details (id) ON DELETE CASCADE,
     INDEX idx_product (product_id),
     INDEX idx_related (related_product_id)
+);
+
+-- ======================
+-- BẢNG QUẢN LÝ ĐƠN HÀNG
+-- ======================
+
+-- Xóa bảng orders nếu đã tồn tại (tránh lỗi khi chạy lại file)
+DROP TABLE IF EXISTS orders;
+
+-- Bảng orders: Lưu thông tin tổng quan đơn hàng digital
+CREATE TABLE orders
+(
+    id              INT PRIMARY KEY AUTO_INCREMENT,                                                                                       -- Khóa chính, tự tăng
+    user_id         INT            NOT NULL,                                                                                              -- Khách hàng đặt đơn (FK users)
+    order_code      VARCHAR(50) UNIQUE,                                                                                                   -- Mã đơn hàng duy nhất, cho phép NULL để trigger tự sinh
+    status          ENUM ('pending', 'paid', 'completed', 'cancelled', 'refunded') DEFAULT 'pending',                                     -- Trạng thái đơn
+    total_amount    DECIMAL(15, 2) NOT NULL,                                                                                              -- Tổng tiền trước giảm giá
+    discount_amount DECIMAL(15, 2)                                                 DEFAULT 0,                                             -- Tổng giảm giá
+    final_amount    DECIMAL(15, 2) NOT NULL,                                                                                              -- Số tiền phải thanh toán
+    payment_status  ENUM ('unpaid', 'paid', 'refunded')                            DEFAULT 'unpaid',                                      -- Trạng thái thanh toán
+    note            TEXT,                                                                                                                 -- Ghi chú đơn hàng
+    created_at      TIMESTAMP                                                      DEFAULT CURRENT_TIMESTAMP,                             -- Thời gian tạo đơn
+    updated_at      TIMESTAMP                                                      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- Thời gian cập nhật
+    FOREIGN KEY (user_id) REFERENCES users (id),
+    INDEX idx_user (user_id),
+    INDEX idx_status (status)
+);
+
+-- Xóa bảng order_items nếu đã tồn tại (tránh lỗi khi chạy lại file)
+DROP TABLE IF EXISTS order_items;
+
+-- Bảng order_items: Lưu chi tiết từng sản phẩm/gói trong đơn
+CREATE TABLE order_items
+(
+    id           INT PRIMARY KEY AUTO_INCREMENT,    -- Khóa chính
+    order_id     INT            NOT NULL,           -- FK orders
+    product_id   INT            NOT NULL,           -- FK product_details
+    package_id   INT,                               -- FK product_packages (nếu có)
+    product_name VARCHAR(255)   NOT NULL,           -- Tên sản phẩm tại thời điểm đặt
+    package_name VARCHAR(255),                      -- Tên gói tại thời điểm đặt
+    quantity     INT            NOT NULL DEFAULT 1, -- Số lượng
+    unit_price   DECIMAL(15, 2) NOT NULL,           -- Giá 1 đơn vị
+    total_price  DECIMAL(15, 2) NOT NULL,           -- Tổng giá trước giảm giá
+    discount     DECIMAL(15, 2)          DEFAULT 0, -- Giảm giá dòng này
+    final_price  DECIMAL(15, 2) NOT NULL,           -- Giá sau giảm giá
+    FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES product_details (id),
+    FOREIGN KEY (package_id) REFERENCES product_packages (id),
+    INDEX idx_order (order_id)
+);
+
+-- Xóa bảng payment_transactions nếu đã tồn tại (tránh lỗi khi chạy lại file)
+DROP TABLE IF EXISTS payment_transactions;
+
+-- Bảng payment_transactions: Lưu các giao dịch thanh toán cho đơn hàng
+CREATE TABLE payment_transactions
+(
+    id               INT PRIMARY KEY AUTO_INCREMENT,                                              -- Khóa chính
+    order_id         INT            NOT NULL,                                                     -- Đơn hàng liên quan (FK orders)
+    payment_method   VARCHAR(50)    NOT NULL,                                                     -- Phương thức thanh toán (momo, bank, ...)
+    amount           DECIMAL(15, 2) NOT NULL,                                                     -- Số tiền giao dịch
+    transaction_code VARCHAR(100),                                                                -- Mã giao dịch từ cổng thanh toán
+    status           ENUM ('pending', 'success', 'failed', 'refunded') DEFAULT 'pending',         -- Trạng thái giao dịch
+    created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,                                         -- Thời gian tạo giao dịch
+    updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,             -- Thời gian cập nhật trạng thái
+    note             TEXT,                                                                        -- Ghi chú giao dịch
+    FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE,
+    INDEX idx_order (order_id),
+    INDEX idx_status (status)
+);
+
+-- Xóa bảng order_status_logs nếu đã tồn tại (tránh lỗi khi chạy lại file)
+DROP TABLE IF EXISTS order_status_logs;
+
+-- Bảng order_status_logs: Lưu lịch sử thay đổi trạng thái đơn hàng
+CREATE TABLE order_status_logs
+(
+    id         INT PRIMARY KEY AUTO_INCREMENT,                                  -- Khóa chính
+    order_id   INT         NOT NULL,                                            -- Đơn hàng liên quan (FK orders)
+    old_status VARCHAR(50),                                                     -- Trạng thái cũ
+    new_status VARCHAR(50) NOT NULL,                                            -- Trạng thái mới
+    note       TEXT,                                                            -- Ghi chú thay đổi
+    changed_by INT,                                                             -- Người thay đổi (user_id hoặc staff_id)
+    changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- Thời gian thay đổi
+    FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE,
+    FOREIGN KEY (changed_by) REFERENCES users (id),
+    INDEX idx_order (order_id)
+);
+
+-- Xóa bảng order_vouchers nếu đã tồn tại (tránh lỗi khi chạy lại file)
+DROP TABLE IF EXISTS order_vouchers;
+
+-- Bảng order_vouchers: Lưu voucher đã áp dụng cho đơn hàng
+CREATE TABLE order_vouchers
+(
+    id         INT PRIMARY KEY AUTO_INCREMENT,      -- Khóa chính
+    order_id   INT            NOT NULL,             -- Đơn hàng liên quan (FK orders)
+    voucher_id INT            NOT NULL,             -- Voucher áp dụng (FK vouchers)
+    code       VARCHAR(50)    NOT NULL,             -- Mã voucher
+    discount   DECIMAL(15, 2) NOT NULL,             -- Số tiền giảm giá
+    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Thời gian áp dụng
+    FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE,
+    FOREIGN KEY (voucher_id) REFERENCES vouchers (id),
+    INDEX idx_order (order_id)
+);
+
+-- =============================
+-- TRIGGER TỰ ĐỘNG SINH ORDER_CODE CHO ĐƠN HÀNG
+-- Format: yyMMdd + 7 ký tự ngẫu nhiên (A-Z, 0-9)
+-- Ví dụ: 250606S7CUJ4A
+-- Đảm bảo order_code là duy nhất nhờ UNIQUE constraint
+-- Xác suất trùng lặp cực thấp, phù hợp cho hệ thống < 1000 đơn/ngày
+-- Nếu trùng sẽ báo lỗi duplicate key (rất hiếm gặp)
+
+-- Xóa trigger sinh order_code nếu đã tồn tại (tránh lỗi khi chạy lại file)
+DROP TRIGGER IF EXISTS trg_generate_order_code;
+
+DELIMITER $$
+CREATE TRIGGER trg_generate_order_code
+    BEFORE INSERT
+    ON orders
+    FOR EACH ROW
+BEGIN
+    IF NEW.order_code IS NULL OR NEW.order_code = '' THEN
+        SET NEW.order_code = CONCAT(
+                DATE_FORMAT(NOW(), '%y%m%d'),
+                SUBSTRING('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', FLOOR(1 + (RAND() * 36)), 1),
+                SUBSTRING('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', FLOOR(1 + (RAND() * 36)), 1),
+                SUBSTRING('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', FLOOR(1 + (RAND() * 36)), 1),
+                SUBSTRING('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', FLOOR(1 + (RAND() * 36)), 1),
+                SUBSTRING('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', FLOOR(1 + (RAND() * 36)), 1),
+                SUBSTRING('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', FLOOR(1 + (RAND() * 36)), 1),
+                SUBSTRING('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', FLOOR(1 + (RAND() * 36)), 1)
+                             );
+    END IF;
+END$$
+DELIMITER ;
+
+-- Xóa bảng cart_items nếu đã tồn tại
+DROP TABLE IF EXISTS cart_items;
+
+-- Bảng cart_items: Lưu chi tiết sản phẩm/gói trong giỏ hàng
+CREATE TABLE cart_items (
+    id            INT PRIMARY KEY AUTO_INCREMENT,               -- Khóa chính
+    cart_id       INT NOT NULL,                                 -- FK cart_sessions
+    product_id    INT NOT NULL,                                 -- FK product_details
+    package_id    INT,                                          -- FK product_packages (nếu có)
+    quantity      INT NOT NULL DEFAULT 1,                       -- Số lượng
+    added_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,          -- Thời gian thêm vào giỏ
+    updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- Thời gian cập nhật
+    FOREIGN KEY (cart_id) REFERENCES cart_sessions(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES product_details(id),
+    FOREIGN KEY (package_id) REFERENCES product_packages(id)
 );
 

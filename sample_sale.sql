@@ -275,162 +275,122 @@ VALUES
  'Spotify Premium - Nghe nhạc không quảng cáo',
  'Mua Spotify Premium với giá tốt nhất. Nghe nhạc không quảng cáo, tải nhạc offline.', 1);
 
--- Dữ liệu mẫu cho bảng product_details
+-- =============================
+-- DỮ LIỆU MẪU CHO SẢN PHẨM MỚI (products & product_packages)
+-- =============================
 
-INSERT INTO product_details (name, slug, category_id, description, image_url, meta_images, status, product_code)
-VALUES ('ChatGPT (OpenAI) - Tài khoản', 'chatgpt-openai-tai-khoan', 1,
-        'Tài khoản ChatGPT (OpenAI) dùng cho học tập, làm việc, nghiên cứu AI, chatbot, v.v.',
-        '/images/products/chatgpt-openai.jpg',
-        '["/images/products/chatgpt-openai-1.jpg", "/images/products/chatgpt-openai-2.jpg"]', 1, 'CGPT-001'),
-       ('Google Gemini Advanced', 'google-gemini-advanced', 3,
-        'Tài khoản Google Gemini Advanced AI, trải nghiệm sức mạnh AI mới nhất.', '/images/products/google-gemini.jpg',
-        '["/images/products/google-gemini-1.jpg"]', 1, 'GGA-001'),
-       ('Spotify Premium', 'spotify-premium', 4,
-        'Tài khoản Spotify Premium nghe nhạc không quảng cáo, tải nhạc offline.', '/images/products/spotify.jpg',
-        '["/images/products/spotify-1.jpg"]', 1, 'SPOT-001'),
-       ('Red Dead Redemption 2', 'red-dead-redemption-2', 7,
-        'Game phiêu lưu hành động thế giới mở đình đám trên Steam.', '/images/products/rdr2.jpg',
-        '["/images/products/rdr2-1.jpg", "/images/products/rdr2-2.jpg"]', 1, 'RDR2-STEAM'),
-       ('Duolingo Super 1 năm', 'duolingo-super-1-nam', 5,
-        'Tài khoản Duolingo Super sử dụng 1 năm, học ngoại ngữ không quảng cáo.', '/images/products/duolingo.jpg',
-        '["/images/products/duolingo-1.jpg"]', 1, 'DUO-1Y'),
-       ('Netflix Premium', 'netflix-premium', 11,
-        'Tài khoản Netflix Premium xem phim chất lượng cao, không giới hạn.', '/images/products/netflix.jpg',
-        '["/images/products/netflix-1.jpg"]', 1, 'NETFLIX-PRM');
+-- Bảng products (sản phẩm mẹ)
+INSERT INTO products (id, name, slug, category_id, description, image_url, status, total_stock, total_sold, created_at, updated_at)
+VALUES
+(1, 'ChatGPT (OpenAI)', 'chatgpt-openai', 1, 'Tài khoản ChatGPT (OpenAI) dùng cho học tập, làm việc, nghiên cứu AI, chatbot, v.v.', '/images/products/chatgpt-openai.jpg', 1, 400, 230, NOW(), NOW()),
+(2, 'Google Gemini Advanced', 'google-gemini-advanced', 3, 'Tài khoản Google Gemini Advanced AI, trải nghiệm sức mạnh AI mới nhất.', '/images/products/google-gemini.jpg', 1, 150, 80, NOW(), NOW()),
+(3, 'Spotify Premium', 'spotify-premium', 4, 'Tài khoản Spotify Premium nghe nhạc không quảng cáo, tải nhạc offline.', '/images/products/spotify.jpg', 1, 150, 80, NOW(), NOW()),
+(4, 'Red Dead Redemption 2', 'red-dead-redemption-2', 7, 'Game phiêu lưu hành động thế giới mở đình đám trên Steam.', '/images/products/rdr2.jpg', 1, 150, 80, NOW(), NOW()),
+(5, 'Duolingo Super', 'duolingo-super', 5, 'Tài khoản Duolingo Super học ngoại ngữ không quảng cáo.', '/images/products/duolingo.jpg', 1, 150, 80, NOW(), NOW()),
+(6, 'Netflix Premium', 'netflix-premium', 11, 'Tài khoản Netflix Premium xem phim chất lượng cao, không giới hạn.', '/images/products/netflix.jpg', 1, 150, 80, NOW(), NOW());
 
--- Dữ liệu mẫu cho bảng product_packages (liên kết đúng với product_details, đa dạng sản phẩm)
-INSERT INTO product_packages (product_id, name, description, price, old_price, duration_days, stock_quantity,
-                              sold_count, status)
+-- Bảng product_packages (gói sản phẩm con)
+INSERT INTO product_packages (id, product_id, name, description, price, old_price, duration_days, stock_quantity, sold_count, details, note, status, created_at, updated_at)
 VALUES
 -- ChatGPT (id=1)
-(1, 'TK Free', 'Tài khoản ChatGPT miễn phí, dùng cơ bản.', 0, NULL, NULL, 100, 50, 1),
-(1, 'Nâng cấp ChatGPT Plus', 'Nâng cấp tài khoản ChatGPT lên Plus, sử dụng GPT-4, tốc độ nhanh hơn.', 500000, 600000,
- 30, 200, 120, 1),
-(1, 'TK ChatGPT Plus 2 tháng', 'Tài khoản ChatGPT Plus sử dụng 2 tháng.', 900000, 1000000, 60, 100, 60, 1),
+(1, 1, 'TK Free', 'Tài khoản ChatGPT miễn phí, dùng cơ bản.', 0, NULL, NULL, 100, 50, 'Sử dụng ChatGPT miễn phí, giới hạn tính năng, không hỗ trợ GPT-4.', 'Không hỗ trợ truy cập API.', 1, NOW(), NOW()),
+(2, 1, 'Nâng cấp ChatGPT Plus', 'Nâng cấp tài khoản ChatGPT lên Plus, sử dụng GPT-4, tốc độ nhanh hơn.', 500000, 600000, 30, 200, 120, 'Truy cập GPT-4, tốc độ ưu tiên, hỗ trợ plugin, phù hợp cho người dùng chuyên nghiệp.', 'Chỉ áp dụng cho tài khoản chưa từng nâng cấp.', 1, NOW(), NOW()),
+(3, 1, 'TK ChatGPT Plus 2 tháng', 'Tài khoản ChatGPT Plus sử dụng 2 tháng.', 900000, 1000000, 60, 100, 60, 'Tài khoản ChatGPT Plus sử dụng liên tục 2 tháng, đầy đủ tính năng cao cấp.', 'Không hoàn tiền sau khi giao dịch thành công.', 1, NOW(), NOW()),
 -- Google Gemini Advanced (id=2)
-(2, 'Google Gemini Advanced 1 tháng', 'Tài khoản Google Gemini Advanced dùng 1 tháng.', 300000, 350000, 30, 100, 50, 1),
-(2, 'Google Gemini Advanced 3 tháng', 'Tài khoản Google Gemini Advanced dùng 3 tháng.', 800000, 900000, 90, 50, 30, 1),
+(4, 2, 'Google Gemini Advanced 1 tháng', 'Tài khoản Google Gemini Advanced dùng 1 tháng.', 300000, 350000, 30, 100, 50, 'Truy cập Google Gemini Advanced AI, sử dụng không giới hạn trong 1 tháng.', 'Liên hệ CSKH nếu gặp lỗi kích hoạt.', 1, NOW(), NOW()),
+(5, 2, 'Google Gemini Advanced 3 tháng', 'Tài khoản Google Gemini Advanced dùng 3 tháng.', 800000, 900000, 90, 50, 30, 'Sử dụng Google Gemini Advanced AI liên tục 3 tháng, hỗ trợ đầy đủ tính năng.', 'Không hoàn tiền sau khi giao dịch thành công.', 1, NOW(), NOW()),
 -- Spotify Premium (id=3)
-(3, 'Spotify Premium 1 tháng', 'Tài khoản Spotify Premium dùng 1 tháng.', 65000, 80000, 30, 100, 50, 1),
-(3, 'Spotify Premium 12 tháng', 'Tài khoản Spotify Premium dùng 12 tháng.', 700000, 900000, 365, 50, 30, 1),
+(6, 3, 'Spotify Premium 1 tháng', 'Tài khoản Spotify Premium dùng 1 tháng.', 65000, 80000, 30, 100, 50, 'Nghe nhạc không quảng cáo, tải nhạc offline, chất lượng cao trong 1 tháng.', 'Không tự động gia hạn, cần mua lại khi hết hạn.', 1, NOW(), NOW()),
+(7, 3, 'Spotify Premium 12 tháng', 'Tài khoản Spotify Premium dùng 12 tháng.', 700000, 900000, 365, 50, 30, 'Sử dụng Spotify Premium liên tục 12 tháng, tiết kiệm chi phí, đầy đủ quyền lợi.', 'Không hoàn tiền sau khi giao dịch thành công.', 1, NOW(), NOW()),
 -- Red Dead Redemption 2 (id=4)
-(4, 'RDR2 Steam Key', 'Mã kích hoạt Red Dead Redemption 2 bản quyền Steam.', 1200000, 1500000, NULL, 100, 50, 1),
-(4, 'RDR2 Ultimate Edition', 'Red Dead Redemption 2 Ultimate Edition (Steam)', 1800000, 2200000, NULL, 50, 30, 1),
--- Duolingo Super 1 năm (id=5)
-(5, 'Duolingo Super 1 năm', 'Tài khoản Duolingo Super sử dụng 1 năm, không quảng cáo.', 900000, 1200000, 365, 100, 50,
- 1),
-(5, 'Duolingo Super 6 tháng', 'Tài khoản Duolingo Super sử dụng 6 tháng.', 500000, 700000, 180, 50, 30, 1),
+(8, 4, 'RDR2 Steam Key', 'Mã kích hoạt Red Dead Redemption 2 bản quyền Steam.', 1200000, 1500000, NULL, 100, 50, 'Steam Key bản quyền, chơi online và offline, nhận key ngay sau thanh toán.', 'Key chỉ dùng được 1 lần, không hoàn lại.', 1, NOW(), NOW()),
+(9, 4, 'RDR2 Ultimate Edition', 'Red Dead Redemption 2 Ultimate Edition (Steam)', 1800000, 2200000, NULL, 50, 30, 'Ultimate Edition bao gồm toàn bộ DLC, vật phẩm đặc biệt, trải nghiệm đầy đủ nhất.', 'Key chỉ dùng được 1 lần, không hoàn lại.', 1, NOW(), NOW()),
+-- Duolingo Super (id=5)
+(10, 5, 'Duolingo Super 1 năm', 'Tài khoản Duolingo Super sử dụng 1 năm, không quảng cáo.', 900000, 1200000, 365, 100, 50, 'Học ngoại ngữ không quảng cáo, truy cập tính năng Super, sử dụng 1 năm.', 'Không hoàn tiền sau khi giao dịch thành công.', 1, NOW(), NOW()),
+(11, 5, 'Duolingo Super 6 tháng', 'Tài khoản Duolingo Super sử dụng 6 tháng.', 500000, 700000, 180, 50, 30, 'Tài khoản Duolingo Super sử dụng 6 tháng, hỗ trợ học offline, không quảng cáo.', 'Không hoàn tiền sau khi giao dịch thành công.', 1, NOW(), NOW()),
 -- Netflix Premium (id=6)
-(6, 'Netflix Premium 1 tháng', 'Tài khoản Netflix Premium dùng 1 tháng, xem trên 4 thiết bị.', 70000, 120000, 30, 100,
- 50, 1),
-(6, 'Netflix Premium 12 tháng', 'Tài khoản Netflix Premium dùng 12 tháng, chất lượng 4K.', 800000, 1200000, 365, 50, 30,
- 1);
+(12, 6, 'Netflix Premium 1 tháng', 'Tài khoản Netflix Premium dùng 1 tháng, xem trên 4 thiết bị.', 70000, 120000, 30, 100, 50, 'Xem phim chất lượng 4K, không giới hạn, sử dụng trên 4 thiết bị cùng lúc trong 1 tháng.', 'Lưu ý:\n1. Đọc kỹ phần Thông tin sản phẩm trước khi mua để được bảo hành.\n2. Lưu ý chỉ sử dụng đúng user mang tên mình và không được đổi pass trong quá trình sử dụng.\n3. Hạn sử dụng của sản phẩm KHÔNG cộng dồn khi mua số lượng nhiều sản phẩm. Tài khoản có hạn 1 ngày.\n4. Sản phẩm này phù hợp với những khách hàng chỉ xem một bộ phim, hoặc xem trong một ngày nghỉ, không thường xuyên sử dụng. Nên chỉ cần bỏ ra chi phí cho 1 ngày, mà không cần trả chi phí cả tháng chỉ để dùng một vài lần.\n5. Hệ thống có thể sẽ thay đổi mật khẩu của bạn vì lý do bảo mật.', 1, NOW(), NOW()),
+(13, 6, 'Netflix Premium 12 tháng', 'Tài khoản Netflix Premium dùng 12 tháng, chất lượng 4K.', 800000, 1200000, 365, 50, 30, 'Tài khoản Netflix Premium sử dụng 12 tháng, xem phim 4K, tiết kiệm chi phí.', 'Không hoàn tiền sau khi giao dịch thành công.', 1, NOW(), NOW());
 
--- Dữ liệu mẫu cho bảng vouchers (chỉ voucher giảm giá, không có FREESHIP)
-INSERT INTO vouchers (code, description, discount_type, discount_value, min_order_value, max_discount_value, start_date,
-                      end_date, usage_limit, used_count, status)
-VALUES ('GIAM10K', 'Giảm 10.000đ cho đơn từ 100.000đ', 'amount', 10000, 100000, NULL, NOW(),
-        DATE_ADD(NOW(), INTERVAL 30 DAY), 100, 0, 1),
-       ('GIAM20P', 'Giảm 20% tối đa 50.000đ cho đơn từ 200.000đ', 'percent', 20, 200000, 50000, NOW(),
-        DATE_ADD(NOW(), INTERVAL 30 DAY), 50, 0, 1),
-       ('VIP30', 'Giảm 30% cho khách hàng VIP, tối đa 100.000đ, đơn từ 300.000đ', 'percent', 30, 300000, 100000, NOW(),
-        DATE_ADD(NOW(), INTERVAL 15 DAY), 20, 0, 1);
-
--- Dữ liệu mẫu cho bảng voucher_applies
--- Giả sử id voucher: 1 = GIAM10K, 2 = GIAM20P, 3 = VIP30
--- Giả sử id package: 1 = TK Free, 2 = Nâng cấp ChatGPT Plus, 3 = TK ChatGPT Plus 2 tháng, 4 = Google Gemini Advanced 1 tháng, 5 = Google Gemini Advanced 3 tháng, 6 = Spotify Premium 1 tháng, 7 = Spotify Premium 12 tháng
-
-INSERT INTO voucher_applies (voucher_id, package_id, min_price)
-VALUES (1, 2, 100000), -- GIAM10K áp dụng cho Nâng cấp ChatGPT Plus, min_price 100k
-       (1, 3, 100000), -- GIAM10K áp dụng cho TK ChatGPT Plus 2 tháng, min_price 100k
-       (2, 2, 200000), -- GIAM20P áp dụng cho Nâng cấp ChatGPT Plus, min_price 200k
-       (2, 4, 200000), -- GIAM20P áp dụng cho Google Gemini Advanced 1 tháng, min_price 200k
-       (3, 6, 150000), -- VIP30 áp dụng cho Spotify Premium 1 tháng, min_price 150k
-       (3, 7, 150000);
--- VIP30 áp dụng cho Spotify Premium 12 tháng, min_price 150k
-
-
--- Dữ liệu mẫu cho bảng product_tags (bổ sung các tag nếu chưa có)
+-- product_tags (danh sách các tag mẫu)
 INSERT INTO product_tags (name, slug)
-VALUES ('action', 'action'),
-       ('adventure', 'adventure'),
-       ('steam', 'steam'),
-       ('học tập', 'hoc-tap'),
-       ('app', 'app'),
-       ('giải trí', 'giai-tri');
+VALUES 
+('action', 'action'),
+('adventure', 'adventure'),
+('steam', 'steam'),
+('học tập', 'hoc-tap'),
+('app', 'app'),
+('giải trí', 'giai-tri');
 
--- Dữ liệu mẫu cho bảng product_tag_map
--- product_id 1: Red Dead Redemption 2
--- product_id 2: Duolingo Super 1 năm
--- product_id 3: Spotify Premium
--- tag_id 1: action
--- tag_id 2: adventure
--- tag_id 3: steam
--- tag_id 4: học tập
--- tag_id 5: app
--- tag_id 6: giải trí
-INSERT INTO product_tag_map (product_id, tag_id)
-VALUES (1, 1), -- Red Dead Redemption 2: action
-       (1, 2), -- Red Dead Redemption 2: adventure
-       (1, 3), -- Red Dead Redemption 2: steam
-       (2, 4), -- Duolingo Super 1 năm: học tập
-       (2, 5), -- Duolingo Super 1 năm: app
-       (3, 6), -- Spotify Premium: giải trí
-       (3, 5);
--- Spotify Premium: app
+-- product_tag_map
+INSERT INTO product_tag_map (package_id, tag_id)
+VALUES 
+(8, 1), -- RDR2 Steam Key: action
+(8, 2), -- RDR2 Steam Key: adventure
+(8, 3), -- RDR2 Steam Key: steam
+(10, 4), -- Duolingo Super 1 năm: học tập
+(10, 5), -- Duolingo Super 1 năm: app
+(6, 6), -- Spotify Premium 1 tháng: giải trí
+(6, 5); -- Spotify Premium 1 tháng: app
 
--- Thuộc tính cho Red Dead Redemption 2
-INSERT INTO product_attributes (product_id, attr_name, attr_value)
-VALUES (4, 'Nhà phát triển', 'Rockstar Games'),
-       (4, 'Thể loại', 'Hành động, Phiêu lưu'),
-       (4, 'Nền tảng', 'PC (Steam)'),
-       (4, 'Ngôn ngữ', 'Tiếng Anh, Tiếng Việt'),
-       (4, 'Chế độ chơi', 'Singleplayer, Online');
+-- product_attributes
+INSERT INTO product_attributes (package_id, attr_name, attr_value)
+VALUES
+(8, 'Nhà phát triển', 'Rockstar Games'),
+(8, 'Thể loại', 'Hành động, Phiêu lưu'),
+(8, 'Nền tảng', 'PC (Steam)'),
+(8, 'Ngôn ngữ', 'Tiếng Anh, Tiếng Việt'),
+(8, 'Chế độ chơi', 'Singleplayer, Online'),
+(10, 'Nhà phát triển', 'Duolingo'),
+(10, 'Thời hạn', '1 năm'),
+(10, 'Tính năng', 'Không quảng cáo, Học offline'),
+(10, 'Nền tảng', 'Web, App, Mobile'),
+(12, 'Nhà phát triển', 'Netflix'),
+(12, 'Thời hạn', '1 tháng/12 tháng'),
+(12, 'Chất lượng phim', 'HD/UHD 4K'),
+(12, 'Số thiết bị', '4'),
+(12, 'Nền tảng', 'Web, App, Smart TV');
 
--- Thuộc tính cho Duolingo Super 1 năm
-INSERT INTO product_attributes (product_id, attr_name, attr_value)
-VALUES (5, 'Nhà phát triển', 'Duolingo'),
-       (5, 'Thời hạn', '1 năm'),
-       (5, 'Tính năng', 'Không quảng cáo, Học offline'),
-       (5, 'Nền tảng', 'Web, App, Mobile');
-
--- Thuộc tính cho Netflix Premium
-INSERT INTO product_attributes (product_id, attr_name, attr_value)
-VALUES (6, 'Nhà phát triển', 'Netflix'),
-       (6, 'Thời hạn', '1 tháng/12 tháng'),
-       (6, 'Chất lượng phim', 'HD/UHD 4K'),
-       (6, 'Số thiết bị', '4'),
-       (6, 'Nền tảng', 'Web, App, Smart TV');
-
--- Dữ liệu mẫu cho bảng product_reviews
-INSERT INTO product_reviews (product_id, user_id, rating, review_text, created_at)
+-- product_reviews
+INSERT INTO product_reviews (package_id, user_id, rating, review_text, created_at)
 VALUES
 (1, 1, 5, 'ChatGPT rất hữu ích cho công việc và học tập của tôi.', NOW()),
-(2, 2, 5, 'Google Gemini Advanced AI mạnh mẽ, trả lời nhanh.', NOW()),
-(3, 3, 4, 'Spotify Premium nghe nhạc chất lượng cao, không quảng cáo.', NOW()),
-(4, 1, 5, 'Red Dead Redemption 2 là game thế giới mở tuyệt vời!', NOW()),
-(5, 2, 4, 'Duolingo Super giúp tôi học ngoại ngữ hiệu quả hơn.', NOW()),
-(6, 3, 5, 'Netflix Premium xem phim 4K cực nét, nhiều phim hay.', NOW());
+(4, 2, 5, 'Google Gemini Advanced AI mạnh mẽ, trả lời nhanh.', NOW()),
+(6, 3, 4, 'Spotify Premium nghe nhạc chất lượng cao, không quảng cáo.', NOW()),
+(8, 1, 5, 'Red Dead Redemption 2 là game thế giới mở tuyệt vời!', NOW()),
+(10, 2, 4, 'Duolingo Super giúp tôi học ngoại ngữ hiệu quả hơn.', NOW()),
+(12, 3, 5, 'Netflix Premium xem phim 4K cực nét, nhiều phim hay.', NOW());
 
--- Dữ liệu mẫu cho bảng product_documents
-INSERT INTO product_documents (product_id, doc_name, doc_url, doc_type)
+-- product_documents
+INSERT INTO product_documents (package_id, doc_name, doc_url, doc_type)
 VALUES
 (1, 'Hướng dẫn sử dụng ChatGPT', '/docs/chatgpt-hdsd.pdf', 'pdf'),
-(2, 'Hướng dẫn kích hoạt Gemini Advanced', '/docs/gemini-activate.pdf', 'pdf'),
-(3, 'Câu hỏi thường gặp Spotify', '/docs/spotify-faq.pdf', 'pdf'),
-(4, 'Hướng dẫn cài đặt RDR2', '/docs/rdr2-setup.pdf', 'pdf'),
-(5, 'Hướng dẫn sử dụng Duolingo', '/docs/duolingo-guide.pdf', 'pdf'),
-(6, 'Hướng dẫn sử dụng Netflix', '/docs/netflix-guide.pdf', 'pdf');
+(4, 'Hướng dẫn kích hoạt Gemini Advanced', '/docs/gemini-activate.pdf', 'pdf'),
+(6, 'Câu hỏi thường gặp Spotify', '/docs/spotify-faq.pdf', 'pdf'),
+(8, 'Hướng dẫn cài đặt RDR2', '/docs/rdr2-setup.pdf', 'pdf'),
+(10, 'Hướng dẫn sử dụng Duolingo', '/docs/duolingo-guide.pdf', 'pdf'),
+(12, 'Hướng dẫn sử dụng Netflix', '/docs/netflix-guide.pdf', 'pdf');
 
--- Dữ liệu mẫu cho bảng product_related
-INSERT INTO product_related (product_id, related_product_id, relation_type)
+-- product_related
+INSERT INTO product_related (package_id, related_package_id, relation_type)
 VALUES
-(1, 2, 'related'), -- ChatGPT liên quan Gemini
-(2, 1, 'related'), -- Gemini liên quan ChatGPT
-(3, 6, 'cross-sell'), -- Spotify cross-sell Netflix
-(6, 3, 'cross-sell'), -- Netflix cross-sell Spotify
-(4, 1, 'upsell'), -- RDR2 upsell ChatGPT
-(5, 3, 'related'); -- Duolingo liên quan Spotify
+(1, 4, 'related'),
+(4, 1, 'related'),
+(6, 12, 'cross-sell'),
+(12, 6, 'cross-sell'),
+(8, 1, 'upsell'),
+(10, 6, 'related');
+
+-- product_faqs (FAQ cho từng gói sản phẩm)
+INSERT INTO product_faqs (package_id, question, answer, display_order)
+VALUES
+(1, 'Tài khoản ChatGPT Free có dùng được GPT-4 không?', 'Không, ChatGPT Free chỉ dùng được GPT-3.5, muốn dùng GPT-4 cần nâng cấp Plus.', 1),
+(2, 'ChatGPT Plus có hỗ trợ plugin không?', 'Có, ChatGPT Plus hỗ trợ plugin và truy cập web.', 1),
+(4, 'Google Gemini Advanced có giới hạn số lượt sử dụng không?', 'Không, bạn có thể sử dụng không giới hạn trong thời gian gói còn hiệu lực.', 1),
+(6, 'Spotify Premium 1 tháng có tự động gia hạn không?', 'Không, gói này không tự động gia hạn, bạn cần mua lại khi hết hạn.', 1),
+(8, 'RDR2 Steam Key có chơi được online không?', 'Có, key bản quyền chơi được cả online và offline.', 1),
+(10, 'Duolingo Super có học offline được không?', 'Có, bạn có thể tải bài học về học offline.', 1),
+(12, 'Netflix Premium 1 tháng có xem được trên nhiều thiết bị không?', 'Có, bạn có thể xem trên tối đa 4 thiết bị cùng lúc.', 1);
 
 
 

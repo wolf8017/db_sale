@@ -1,3 +1,5 @@
+/*DROP DATABASE IF EXISTS db_sale;
+CREATE DATABASE db_sale DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;*/
 USE db_sale;
 ALTER DATABASE CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -981,42 +983,28 @@ CREATE TABLE product_tags
     status     TINYINT(1)   NOT NULL DEFAULT 1 COMMENT '1: active, 0: inactive'
 );
 
--- Bảng chi tiết sản phẩm
-DROP TABLE IF EXISTS product_details;
-CREATE TABLE product_details
+-- Bảng sản phẩm mẹ
+DROP TABLE IF EXISTS products;
+CREATE TABLE products
 (
-    id           INT PRIMARY KEY AUTO_INCREMENT,
-    name         VARCHAR(255) NOT NULL,
-    slug         VARCHAR(255) NOT NULL UNIQUE,
-    category_id  INT          NOT NULL,
-    description  TEXT,
-    image_url    VARCHAR(500),
-    meta_images  TEXT,
-    status       TINYINT(1) DEFAULT 1 COMMENT "1: active, 0: inactive",
-    product_code VARCHAR(100) COMMENT "Mã sản phẩm",
-    extra_info   TEXT COMMENT "Thông tin bổ sung", -- Thông tin bổ sung mà sản phẩm có thể cung cấp
-    created_at   TIMESTAMP  DEFAULT CURRENT_TIMESTAMP,
-    updated_at   TIMESTAMP  DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (category_id) REFERENCES product_categories (id) ON DELETE CASCADE,
-    INDEX idx_name (name),
+    id          INT PRIMARY KEY AUTO_INCREMENT,
+    name        VARCHAR(255) NOT NULL,
+    slug        VARCHAR(255) NOT NULL UNIQUE,
+    category_id INT          NOT NULL,
+    description TEXT,
+    image_url   VARCHAR(500),
+    status      TINYINT(1) DEFAULT 1 COMMENT "1: active, 0: inactive",
+    total_stock INT        DEFAULT 0 COMMENT 'Tổng tồn kho (cộng từ các package)',
+    total_sold  INT        DEFAULT 0 COMMENT 'Tổng đã bán (cộng từ các package)',
+    created_at  TIMESTAMP  DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMP  DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (category_id) REFERENCES product_categories (id),
     INDEX idx_slug (slug),
     INDEX idx_category (category_id),
-    INDEX idx_status (status),
-    INDEX idx_product_code (product_code)
+    INDEX idx_status (status)
 );
 
--- Bảng liên kết sản phẩm với tag (nhiều-nhiều)
-DROP TABLE IF EXISTS product_tag_map;
-CREATE TABLE product_tag_map
-(
-    product_id INT NOT NULL,
-    tag_id     INT NOT NULL,
-    PRIMARY KEY (product_id, tag_id),
-    FOREIGN KEY (product_id) REFERENCES product_details (id) ON DELETE CASCADE,
-    FOREIGN KEY (tag_id) REFERENCES product_tags (id) ON DELETE CASCADE
-);
-
--- Bảng gói sản phẩm
+-- Bảng gói sản phẩm con
 DROP TABLE IF EXISTS product_packages;
 CREATE TABLE product_packages
 (
@@ -1032,17 +1020,18 @@ CREATE TABLE product_packages
         ) STORED,
     stock_quantity INT        DEFAULT 0 COMMENT 'Số lượng tồn kho còn lại',
     sold_count     INT        DEFAULT 0 COMMENT 'Số lượng đã bán',
-    status         TINYINT(1) DEFAULT 1,
+    details        TEXT COMMENT 'Thông tin chi tiết về gói sản phẩm',
+    note           TEXT COMMENT 'Lưu ý riêng cho từng gói sản phẩm',
+    status         TINYINT(1) DEFAULT 1, -- 1: active, 0: inactive
     created_at     TIMESTAMP  DEFAULT CURRENT_TIMESTAMP,
     updated_at     TIMESTAMP  DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (product_id) REFERENCES product_details (id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE,
     INDEX idx_product (product_id),
     INDEX idx_name (name),
     INDEX idx_status (status),
     INDEX idx_price (price),
     INDEX idx_percent_off (percent_off)
 );
-
 
 -- Bảng voucher/mã giảm giá
 DROP TABLE IF EXISTS vouchers;
@@ -1084,15 +1073,12 @@ CREATE TABLE voucher_applies
 (
     id         INT PRIMARY KEY AUTO_INCREMENT,
     voucher_id INT NOT NULL,
-    product_id INT,
     package_id INT,
     min_price  DECIMAL(15, 2) DEFAULT 0, -- Giá sản phẩm tối thiểu để áp dụng
     max_price  DECIMAL(15, 2),           -- Giá sản phẩm tối đa để áp dụng (nếu có)
     FOREIGN KEY (voucher_id) REFERENCES vouchers (id) ON DELETE CASCADE,
-    FOREIGN KEY (product_id) REFERENCES product_details (id) ON DELETE CASCADE,
     FOREIGN KEY (package_id) REFERENCES product_packages (id) ON DELETE CASCADE,
     INDEX idx_voucher (voucher_id),
-    INDEX idx_product (product_id),
     INDEX idx_package (package_id),
     INDEX idx_min_max_price (min_price, max_price)
 );
@@ -1104,11 +1090,11 @@ DROP TABLE IF EXISTS product_attributes;
 CREATE TABLE product_attributes
 (
     id         INT PRIMARY KEY AUTO_INCREMENT,
-    product_id INT          NOT NULL,
+    package_id INT          NOT NULL,
     attr_name  VARCHAR(100) NOT NULL,
     attr_value VARCHAR(255) NOT NULL,
-    FOREIGN KEY (product_id) REFERENCES product_details (id) ON DELETE CASCADE,
-    INDEX idx_product (product_id),
+    FOREIGN KEY (package_id) REFERENCES product_packages (id) ON DELETE CASCADE,
+    INDEX idx_package (package_id),
     INDEX idx_attr_name (attr_name)
 );
 
@@ -1117,14 +1103,14 @@ DROP TABLE IF EXISTS product_reviews;
 CREATE TABLE product_reviews
 (
     id          INT PRIMARY KEY AUTO_INCREMENT,
-    product_id  INT     NOT NULL,
+    package_id  INT     NOT NULL,
     user_id     INT,
     rating      TINYINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
     review_text TEXT,
     created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (product_id) REFERENCES product_details (id) ON DELETE CASCADE,
+    FOREIGN KEY (package_id) REFERENCES product_packages (id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL,
-    INDEX idx_product (product_id),
+    INDEX idx_package (package_id),
     INDEX idx_user (user_id),
     INDEX idx_rating (rating)
 );
@@ -1134,12 +1120,12 @@ DROP TABLE IF EXISTS product_faqs;
 CREATE TABLE product_faqs
 (
     id            INT PRIMARY KEY AUTO_INCREMENT,
-    product_id    INT  NOT NULL,
+    package_id    INT  NOT NULL,
     question      TEXT NOT NULL,
     answer        TEXT,
     display_order INT DEFAULT 0,
-    FOREIGN KEY (product_id) REFERENCES product_details (id) ON DELETE CASCADE,
-    INDEX idx_product (product_id)
+    FOREIGN KEY (package_id) REFERENCES product_packages (id) ON DELETE CASCADE,
+    INDEX idx_package (package_id)
 );
 
 -- Bảng tài liệu/hướng dẫn sản phẩm
@@ -1147,12 +1133,12 @@ DROP TABLE IF EXISTS product_documents;
 CREATE TABLE product_documents
 (
     id         INT PRIMARY KEY AUTO_INCREMENT,
-    product_id INT          NOT NULL,
+    package_id INT          NOT NULL,
     doc_name   VARCHAR(255) NOT NULL,
     doc_url    VARCHAR(500) NOT NULL,
     doc_type   VARCHAR(50),
-    FOREIGN KEY (product_id) REFERENCES product_details (id) ON DELETE CASCADE,
-    INDEX idx_product (product_id)
+    FOREIGN KEY (package_id) REFERENCES product_packages (id) ON DELETE CASCADE,
+    INDEX idx_package (package_id)
 );
 
 -- Bảng sản phẩm liên quan/gợi ý mua kèm
@@ -1160,13 +1146,24 @@ DROP TABLE IF EXISTS product_related;
 CREATE TABLE product_related
 (
     id                 INT PRIMARY KEY AUTO_INCREMENT,
-    product_id         INT NOT NULL,
-    related_product_id INT NOT NULL,
+    package_id         INT NOT NULL,
+    related_package_id INT NOT NULL,
     relation_type      ENUM ('related', 'upsell', 'cross-sell') DEFAULT 'related',
-    FOREIGN KEY (product_id) REFERENCES product_details (id) ON DELETE CASCADE,
-    FOREIGN KEY (related_product_id) REFERENCES product_details (id) ON DELETE CASCADE,
-    INDEX idx_product (product_id),
-    INDEX idx_related (related_product_id)
+    FOREIGN KEY (package_id) REFERENCES product_packages (id) ON DELETE CASCADE,
+    FOREIGN KEY (related_package_id) REFERENCES product_packages (id) ON DELETE CASCADE,
+    INDEX idx_package (package_id),
+    INDEX idx_related (related_package_id)
+);
+
+-- Bảng liên kết tag với từng gói sản phẩm (package)
+DROP TABLE IF EXISTS product_tag_map;
+CREATE TABLE product_tag_map
+(
+    package_id INT NOT NULL,
+    tag_id     INT NOT NULL,
+    PRIMARY KEY (package_id, tag_id),
+    FOREIGN KEY (package_id) REFERENCES product_packages (id) ON DELETE CASCADE,
+    FOREIGN KEY (tag_id) REFERENCES product_tags (id) ON DELETE CASCADE
 );
 
 -- ======================
@@ -1203,17 +1200,15 @@ CREATE TABLE order_items
 (
     id           INT PRIMARY KEY AUTO_INCREMENT,    -- Khóa chính
     order_id     INT            NOT NULL,           -- FK orders
-    product_id   INT            NOT NULL,           -- FK product_details
-    package_id   INT,                               -- FK product_packages (nếu có)
+    package_id   INT            NOT NULL,           -- FK product_packages
     product_name VARCHAR(255)   NOT NULL,           -- Tên sản phẩm tại thời điểm đặt
-    package_name VARCHAR(255),                      -- Tên gói tại thời điểm đặt
     quantity     INT            NOT NULL DEFAULT 1, -- Số lượng
     unit_price   DECIMAL(15, 2) NOT NULL,           -- Giá 1 đơn vị
     total_price  DECIMAL(15, 2) NOT NULL,           -- Tổng giá trước giảm giá
     discount     DECIMAL(15, 2)          DEFAULT 0, -- Giảm giá dòng này
     final_price  DECIMAL(15, 2) NOT NULL,           -- Giá sau giảm giá
+    extra_info   TEXT COMMENT 'Thông tin bổ sung (tài khoản, email, mật khẩu, custom input, v.v.)',
     FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE,
-    FOREIGN KEY (product_id) REFERENCES product_details (id),
     FOREIGN KEY (package_id) REFERENCES product_packages (id),
     INDEX idx_order (order_id)
 );
@@ -1224,21 +1219,21 @@ DROP TABLE IF EXISTS payment_transactions;
 -- Bảng payment_transactions: Lưu các giao dịch thanh toán cho đơn hàng
 CREATE TABLE payment_transactions
 (
-    id               INT PRIMARY KEY AUTO_INCREMENT,                                              -- Khóa chính
-    order_id         INT            NOT NULL,                                                     -- Đơn hàng liên quan (FK orders)
-    payment_method   VARCHAR(50)    NOT NULL,                                                     -- Phương thức thanh toán (momo, bank, ...)
-    amount           DECIMAL(15, 2) NOT NULL,                                                     -- Số tiền giao dịch
-    transaction_code VARCHAR(100),                                                                -- Mã giao dịch từ cổng thanh toán
-    status           ENUM ('pending', 'success', 'failed', 'refunded') DEFAULT 'pending',         -- Trạng thái giao dịch
-    created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,                                         -- Thời gian tạo giao dịch
-    updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,             -- Thời gian cập nhật trạng thái
-    note             TEXT,                                                                        -- Ghi chú giao dịch
+    id               INT PRIMARY KEY AUTO_INCREMENT,                                                                          -- Khóa chính
+    order_id         INT            NOT NULL,                                                                                 -- Đơn hàng liên quan (FK orders)
+    payment_method   VARCHAR(50)    NOT NULL,                                                                                 -- Phương thức thanh toán (momo, bank, ...)
+    amount           DECIMAL(15, 2) NOT NULL,                                                                                 -- Số tiền giao dịch
+    transaction_code VARCHAR(100),                                                                                            -- Mã giao dịch từ cổng thanh toán
+    status           ENUM ('pending', 'success', 'failed', 'refunded') DEFAULT 'pending',                                     -- Trạng thái giao dịch
+    created_at       TIMESTAMP                                         DEFAULT CURRENT_TIMESTAMP,                             -- Thời gian tạo giao dịch
+    updated_at       TIMESTAMP                                         DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- Thời gian cập nhật trạng thái
+    note             TEXT,                                                                                                    -- Ghi chú giao dịch
     FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE,
     INDEX idx_order (order_id),
     INDEX idx_status (status)
 );
 
--- Xóa bảng order_status_logs nếu đã tồn tại (tránh lỗi khi chạy lại file)
+-- Xóa bảng order_status_logs nếu đã tồn tại
 DROP TABLE IF EXISTS order_status_logs;
 
 -- Bảng order_status_logs: Lưu lịch sử thay đổi trạng thái đơn hàng
@@ -1299,6 +1294,7 @@ BEGIN
                 SUBSTRING('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', FLOOR(1 + (RAND() * 36)), 1),
                 SUBSTRING('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', FLOOR(1 + (RAND() * 36)), 1),
                 SUBSTRING('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', FLOOR(1 + (RAND() * 36)), 1),
+                SUBSTRING('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', FLOOR(1 + (RAND() * 36)), 1),
                 SUBSTRING('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', FLOOR(1 + (RAND() * 36)), 1)
                              );
     END IF;
@@ -1312,13 +1308,12 @@ DROP TABLE IF EXISTS cart_items;
 CREATE TABLE cart_items (
     id            INT PRIMARY KEY AUTO_INCREMENT,               -- Khóa chính
     cart_id       INT NOT NULL,                                 -- FK cart_sessions
-    product_id    INT NOT NULL,                                 -- FK product_details
-    package_id    INT,                                          -- FK product_packages (nếu có)
+    package_id    INT NOT NULL,                                 -- FK product_packages
     quantity      INT NOT NULL DEFAULT 1,                       -- Số lượng
     added_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,          -- Thời gian thêm vào giỏ
     updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- Thời gian cập nhật
     FOREIGN KEY (cart_id) REFERENCES cart_sessions(id) ON DELETE CASCADE,
-    FOREIGN KEY (product_id) REFERENCES product_details(id),
     FOREIGN KEY (package_id) REFERENCES product_packages(id)
 );
+
 

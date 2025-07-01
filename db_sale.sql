@@ -1,5 +1,7 @@
-/*DROP DATABASE IF EXISTS db_sale;
-CREATE DATABASE db_sale DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;*/
+/*
+DROP DATABASE IF EXISTS db_sale;
+CREATE DATABASE db_sale DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+  */
 USE db_sale;
 ALTER DATABASE CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -33,7 +35,9 @@ DROP PROCEDURE IF EXISTS GetHomepageData;
 DROP PROCEDURE IF EXISTS GetFooterData;
 DROP PROCEDURE IF EXISTS GetNavigationMenu;
 
--- Bảng menu điều hướng
+-- =============================
+-- BẢNG MENU ĐIỀU HƯỚNG (NAVIGATION_MENUS)
+-- =============================
 CREATE TABLE navigation_menus
 (
     id            INT PRIMARY KEY AUTO_INCREMENT,
@@ -53,7 +57,9 @@ CREATE TABLE navigation_menus
     INDEX idx_position_order (position, display_order)
 );
 
--- Bảng cấu hình website
+-- =============================
+-- BẢNG CẤU HÌNH WEBSITE (SITE_SETTINGS)
+-- =============================
 CREATE TABLE site_settings
 (
     id            INT PRIMARY KEY AUTO_INCREMENT,
@@ -67,7 +73,9 @@ CREATE TABLE site_settings
     updated_at    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- Bảng slider/carousel trang chủ
+-- =============================
+-- BẢNG SLIDER/CAROUSEL TRANG CHỦ (HERO_SLIDERS)
+-- =============================
 CREATE TABLE hero_sliders
 (
     id               INT PRIMARY KEY AUTO_INCREMENT,
@@ -107,7 +115,9 @@ CREATE TABLE hero_sliders
     INDEX idx_display (status, start_date, end_date, display_order)
 );
 
--- Bảng các section nổi bật
+-- =============================
+-- BẢNG SECTION NỔI BẬT (FEATURED_SECTIONS)
+-- =============================
 CREATE TABLE IF NOT EXISTS featured_sections
 (
     id                   INT PRIMARY KEY AUTO_INCREMENT,
@@ -146,7 +156,9 @@ CREATE TABLE IF NOT EXISTS featured_sections
     INDEX idx_page_order (page_position, display_order)
 );
 
--- Bảng items trong featured sections (dữ liệu tĩnh)
+-- =============================
+-- BẢNG ITEM TRONG SECTION NỔI BẬT (FEATURED_ITEMS)
+-- =============================
 CREATE TABLE featured_items
 (
     id               INT PRIMARY KEY AUTO_INCREMENT,
@@ -179,7 +191,9 @@ CREATE TABLE featured_items
 );
 
 DROP TABLE IF EXISTS featured_section_items;
--- Bảng liên kết featured sections với content
+-- =============================
+-- BẢNG LIÊN KẾT SECTION NỔI BẬT VỚI CONTENT (FEATURED_SECTION_ITEMS)
+-- =============================
 CREATE TABLE featured_section_items
 (
     id            INT PRIMARY KEY AUTO_INCREMENT,
@@ -193,7 +207,9 @@ CREATE TABLE featured_section_items
     FOREIGN KEY (section_id) REFERENCES featured_sections (id)
 );
 
--- Bảng vị trí banner
+-- =============================
+-- BẢNG VỊ TRÍ BANNER (BANNER_POSITIONS)
+-- =============================
 CREATE TABLE banner_positions
 (
     id                 INT PRIMARY KEY AUTO_INCREMENT,
@@ -209,7 +225,9 @@ CREATE TABLE banner_positions
     status             TINYINT(1)  DEFAULT 1
 );
 
--- Bảng banners
+-- =============================
+-- BẢNG BANNER (BANNERS)
+-- =============================
 CREATE TABLE banners
 (
     id                  INT PRIMARY KEY AUTO_INCREMENT,
@@ -264,7 +282,9 @@ CREATE TABLE banners
     INDEX idx_status_dates (status, start_date, end_date)
 );
 
--- Bảng danh mục bài viết
+-- =============================
+-- BẢNG DANH MỤC BÀI VIẾT (ARTICLE_CATEGORIES)
+-- =============================
 CREATE TABLE article_categories
 (
     id               INT PRIMARY KEY AUTO_INCREMENT,
@@ -287,7 +307,9 @@ CREATE TABLE article_categories
     INDEX idx_parent_order (parent_id, display_order)
 );
 
--- Bảng bài viết
+-- =============================
+-- BẢNG BÀI VIẾT (ARTICLES)
+-- =============================
 CREATE TABLE articles
 (
     id               INT PRIMARY KEY AUTO_INCREMENT,
@@ -326,7 +348,9 @@ CREATE TABLE articles
     INDEX idx_category (category_id, published_at DESC)
 );
 
--- Bảng testimonials/đánh giá khách hàng
+-- =============================
+-- BẢNG ĐÁNH GIÁ KHÁCH HÀNG (TESTIMONIALS)
+-- =============================
 CREATE TABLE testimonials
 (
     id                INT PRIMARY KEY AUTO_INCREMENT,
@@ -355,7 +379,9 @@ CREATE TABLE testimonials
     INDEX idx_featured_order (is_featured, display_order)
 );
 
--- Bảng thống kê hiển thị trang chủ
+-- =============================
+-- BẢNG THỐNG KÊ TRANG CHỦ (HOMEPAGE_STATS)
+-- =============================
 CREATE TABLE homepage_stats
 (
     id               INT PRIMARY KEY AUTO_INCREMENT,
@@ -385,7 +411,9 @@ CREATE TABLE homepage_stats
     INDEX idx_display_order (display_order)
 );
 
--- Bảng footer sections
+-- =============================
+-- BẢNG FOOTER SECTIONS (FOOTER_SECTIONS)
+-- =============================
 CREATE TABLE footer_sections
 (
     id              INT PRIMARY KEY AUTO_INCREMENT,
@@ -404,7 +432,9 @@ CREATE TABLE footer_sections
     INDEX idx_column_order (column_position, display_order)
 );
 
--- Bảng footer links
+-- =============================
+-- BẢNG FOOTER LINKS (FOOTER_LINKS)
+-- =============================
 CREATE TABLE footer_links
 (
     id            INT PRIMARY KEY AUTO_INCREMENT,
@@ -423,7 +453,9 @@ CREATE TABLE footer_links
     INDEX idx_section_order (section_id, display_order)
 );
 
--- Bảng social media
+-- =============================
+-- BẢNG SOCIAL MEDIA (SOCIAL_MEDIA)
+-- =============================
 CREATE TABLE social_media
 (
     id             INT PRIMARY KEY AUTO_INCREMENT,
@@ -442,7 +474,9 @@ CREATE TABLE social_media
     INDEX idx_display_order (display_order)
 );
 
--- Bảng notification bar (thanh thông báo)
+-- =============================
+-- BẢNG NOTIFICATION BAR (NOTIFICATION_BARS)
+-- =============================
 CREATE TABLE notification_bars
 (
     id               INT PRIMARY KEY AUTO_INCREMENT,
@@ -477,7 +511,9 @@ CREATE TABLE notification_bars
     INDEX idx_active_order (status, start_date, end_date, display_order)
 );
 
--- Bảng popups
+-- =============================
+-- BẢNG POPUPS (POPUPS)
+-- =============================
 CREATE TABLE popups
 (
     id                      INT PRIMARY KEY AUTO_INCREMENT,
@@ -532,7 +568,9 @@ CREATE TABLE popups
     INDEX idx_active (status, start_date, end_date)
 );
 
--- Bảng trust badges/chứng nhận
+-- =============================
+-- BẢNG TRUST BADGES (TRUST_BADGES)
+-- =============================
 CREATE TABLE trust_badges
 (
     id               INT PRIMARY KEY AUTO_INCREMENT,
@@ -562,7 +600,9 @@ CREATE TABLE trust_badges
     INDEX idx_type_order (badge_type, display_order)
 );
 
--- Bảng newsletter subscribers
+-- =============================
+-- BẢNG ĐĂNG KÝ NHẬN TIN (NEWSLETTER_SUBSCRIBERS)
+-- =============================
 CREATE TABLE newsletter_subscribers
 (
     id                   INT PRIMARY KEY AUTO_INCREMENT,
@@ -584,7 +624,9 @@ CREATE TABLE newsletter_subscribers
     frequency            VARCHAR(50) DEFAULT 'weekly' COMMENT 'daily, weekly, monthly'
 );
 
--- Bảng contact messages
+-- =============================
+-- BẢNG LIÊN HỆ (CONTACT_MESSAGES)
+-- =============================
 CREATE TABLE contact_messages
 (
     id            INT PRIMARY KEY AUTO_INCREMENT,
@@ -616,7 +658,9 @@ CREATE TABLE contact_messages
     INDEX idx_category_status (category, status)
 );
 
--- View cho active banners theo vị trí
+-- =============================
+-- VIEW BANNER ĐANG HOẠT ĐỘNG (ACTIVE_BANNERS)
+-- =============================
 CREATE VIEW active_banners AS
 SELECT b.*,
        bp.name as position_name,
@@ -629,7 +673,9 @@ WHERE b.status = 1
   AND (b.end_date IS NULL OR b.end_date >= NOW())
   AND bp.status = 1;
 
--- View cho featured content
+-- =============================
+-- VIEW NỘI DUNG NỔI BẬT (FEATURED_CONTENT)
+-- =============================
 CREATE VIEW featured_content AS
 SELECT 'article'                    as content_type,
        a.id,
@@ -661,7 +707,9 @@ FROM featured_items fi
 WHERE fi.status = 1
   AND fs.status = 1;
 
--- Procedure lấy toàn bộ dữ liệu trang chủ
+-- =============================
+-- PROCEDURE LẤY DỮ LIỆU TRANG CHỦ (GETHOMEPAGEDATA)
+-- =============================
 DELIMITER //
 CREATE PROCEDURE GetHomepageData()
 BEGIN
@@ -754,7 +802,9 @@ BEGIN
 END //
 DELIMITER ;
 
--- Procedure lấy dữ liệu footer
+-- =============================
+-- PROCEDURE LẤY DỮ LIỆU FOOTER (GETFOOTERDATA)
+-- =============================
 DELIMITER //
 CREATE PROCEDURE GetFooterData()
 BEGIN
@@ -790,7 +840,9 @@ BEGIN
 END //
 DELIMITER ;
 
--- Procedure lấy navigation menu
+-- =============================
+-- PROCEDURE LẤY MENU ĐIỀU HƯỚNG (GETNAVIGATIONMENU)
+-- =============================
 DELIMITER //
 CREATE PROCEDURE GetNavigationMenu(IN menu_position VARCHAR(50))
 BEGIN
@@ -824,7 +876,9 @@ END //
 DELIMITER ;
 
 DROP TABLE IF EXISTS users;
--- Create users table for website accounts
+-- =============================
+-- BẢNG NGƯỜI DÙNG (USERS)
+-- =============================
 CREATE TABLE users
 (
     id                    INT PRIMARY KEY AUTO_INCREMENT,                                                               -- Unique user ID, auto-incremented
@@ -890,7 +944,7 @@ CREATE TABLE users
     INDEX idx_city_district (city, district)
 );
 
-DROP TRIGGER IF EXISTS trg_suspend_user_after_failed_logins;
+DROP TRIGGER IF EXISTS trg_suspend_user_before_failed_logins;
 
 DELIMITER $$
 CREATE TRIGGER trg_suspend_user_before_failed_logins
@@ -904,7 +958,9 @@ BEGIN
 END$$
 DELIMITER ;
 
--- Bảng danh mục sản phẩm
+-- =============================
+-- BẢNG DANH MỤC SẢN PHẨM (PRODUCT_CATEGORIES)
+-- =============================
 DROP TABLE IF EXISTS product_categories;
 CREATE TABLE product_categories
 (
@@ -943,7 +999,9 @@ CREATE TABLE product_categories
     INDEX idx_status (status)
 );
 
--- View cho danh mục sản phẩm
+-- =============================
+-- VIEW DANH MỤC SẢN PHẨM (PRODUCT_CATEGORY_VIEW)
+-- =============================
 DROP VIEW IF EXISTS product_category_view;
 CREATE VIEW product_category_view AS
 SELECT pc.id,
@@ -971,7 +1029,9 @@ FROM product_categories pc
          LEFT JOIN product_categories parent ON pc.parent_id = parent.id
 WHERE pc.status = 1;
 
--- Bảng tags/nhãn sản phẩm
+-- =============================
+-- BẢNG TAG SẢN PHẨM (PRODUCT_TAGS)
+-- =============================
 DROP TABLE IF EXISTS product_tags;
 CREATE TABLE product_tags
 (
@@ -983,7 +1043,9 @@ CREATE TABLE product_tags
     status     TINYINT(1)   NOT NULL DEFAULT 1 COMMENT '1: active, 0: inactive'
 );
 
--- Bảng sản phẩm mẹ
+-- =============================
+-- BẢNG SẢN PHẨM (PRODUCTS)
+-- =============================
 DROP TABLE IF EXISTS products;
 CREATE TABLE products
 (
@@ -1004,27 +1066,36 @@ CREATE TABLE products
     INDEX idx_status (status)
 );
 
--- Bảng gói sản phẩm con
+-- =============================
+-- BẢNG GÓI SẢN PHẨM (PRODUCT_PACKAGES)
+-- =============================
 DROP TABLE IF EXISTS product_packages;
 CREATE TABLE product_packages
 (
-    id             INT PRIMARY KEY AUTO_INCREMENT,
-    product_id     INT            NOT NULL,
-    name           VARCHAR(255)   NOT NULL,
-    description    TEXT,
-    price          DECIMAL(15, 2) NOT NULL,
-    old_price      DECIMAL(15, 2),
-    duration_days  INT,
-    percent_off    DECIMAL(5, 2) GENERATED ALWAYS AS (
+    id                INT PRIMARY KEY AUTO_INCREMENT,
+    product_id        INT            NOT NULL,
+    name              VARCHAR(255)   NOT NULL,
+    description       TEXT,
+    price             DECIMAL(15, 2) NOT NULL,
+    old_price         DECIMAL(15, 2),
+    duration_days     INT,
+    percent_off       DECIMAL(5, 2) GENERATED ALWAYS AS (
         IF(old_price IS NOT NULL AND old_price > 0 AND price < old_price, 100 * (old_price - price) / old_price, 0)
         ) STORED,
-    stock_quantity INT        DEFAULT 0 COMMENT 'Số lượng tồn kho còn lại',
-    sold_count     INT        DEFAULT 0 COMMENT 'Số lượng đã bán',
-    details        TEXT COMMENT 'Thông tin chi tiết về gói sản phẩm',
-    note           TEXT COMMENT 'Lưu ý riêng cho từng gói sản phẩm',
-    status         TINYINT(1) DEFAULT 1, -- 1: active, 0: inactive
-    created_at     TIMESTAMP  DEFAULT CURRENT_TIMESTAMP,
-    updated_at     TIMESTAMP  DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    stock_quantity    INT                     DEFAULT 0 COMMENT 'Số lượng tồn kho còn lại',
+    sold_count        INT                     DEFAULT 0 COMMENT 'Số lượng đã bán',
+    details           TEXT COMMENT 'Thông tin chi tiết về gói sản phẩm',
+    note              TEXT COMMENT 'Lưu ý riêng cho từng gói sản phẩm',
+
+    -- Loại gói sản phẩm
+    package_type      ENUM ('sale', 'rental') DEFAULT 'sale' COMMENT 'sale: bán đứt, rental: cho thuê',
+
+    -- Thông tin VAT và cách tính (1% cho sale, 5% cho rental)
+    vat_rate          DECIMAL(4, 3)  NOT NULL DEFAULT 0.01 COMMENT 'Tỷ lệ VAT áp dụng cho gói này (0.01 = 1%, 0.05 = 5%)',
+    status            TINYINT(1)              DEFAULT 1, -- 1: active, 0: inactive
+    max_cart_quantity TINYINT(1)              DEFAULT 0 COMMENT 'Số lượng tối đa cho phép trong giỏ hàng (0: không giới hạn, 1: không cho phép thêm nhiều hơn 1)',
+    created_at        TIMESTAMP               DEFAULT CURRENT_TIMESTAMP,
+    updated_at        TIMESTAMP               DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE,
     INDEX idx_product (product_id),
     INDEX idx_name (name),
@@ -1033,7 +1104,9 @@ CREATE TABLE product_packages
     INDEX idx_percent_off (percent_off)
 );
 
--- Bảng voucher/mã giảm giá
+-- =============================
+-- BẢNG VOUCHER (VOUCHERS)
+-- =============================
 DROP TABLE IF EXISTS vouchers;
 CREATE TABLE vouchers
 (
@@ -1067,7 +1140,9 @@ ALTER TABLE vouchers
         (discount_type = 'amount' AND discount_value > 0)
         );
 
--- Bảng liên kết voucher với sản phẩm/gói sản phẩm cụ thể
+-- =============================
+-- BẢNG VOUCHER ÁP DỤNG CHO SẢN PHẨM/GÓI (VOUCHER_APPLIES)
+-- =============================
 DROP TABLE IF EXISTS voucher_applies;
 CREATE TABLE voucher_applies
 (
@@ -1083,9 +1158,9 @@ CREATE TABLE voucher_applies
     INDEX idx_min_max_price (min_price, max_price)
 );
 
--- Chưa chạy từ đây
-
--- Bảng thuộc tính động cho sản phẩm
+-- =============================
+-- BẢNG THUỘC TÍNH SẢN PHẨM (PRODUCT_ATTRIBUTES)
+-- =============================
 DROP TABLE IF EXISTS product_attributes;
 CREATE TABLE product_attributes
 (
@@ -1098,7 +1173,9 @@ CREATE TABLE product_attributes
     INDEX idx_attr_name (attr_name)
 );
 
--- Bảng đánh giá sản phẩm
+-- =============================
+-- BẢNG ĐÁNH GIÁ SẢN PHẨM (PRODUCT_REVIEWS)
+-- =============================
 DROP TABLE IF EXISTS product_reviews;
 CREATE TABLE product_reviews
 (
@@ -1115,7 +1192,9 @@ CREATE TABLE product_reviews
     INDEX idx_rating (rating)
 );
 
--- Bảng FAQ sản phẩm
+-- =============================
+-- BẢNG FAQ SẢN PHẨM (PRODUCT_FAQS)
+-- =============================
 DROP TABLE IF EXISTS product_faqs;
 CREATE TABLE product_faqs
 (
@@ -1128,7 +1207,9 @@ CREATE TABLE product_faqs
     INDEX idx_package (package_id)
 );
 
--- Bảng tài liệu/hướng dẫn sản phẩm
+-- =============================
+-- BẢNG TÀI LIỆU SẢN PHẨM (PRODUCT_DOCUMENTS)
+-- =============================
 DROP TABLE IF EXISTS product_documents;
 CREATE TABLE product_documents
 (
@@ -1141,7 +1222,9 @@ CREATE TABLE product_documents
     INDEX idx_package (package_id)
 );
 
--- Bảng sản phẩm liên quan/gợi ý mua kèm
+-- =============================
+-- BẢNG SẢN PHẨM LIÊN QUAN (PRODUCT_RELATED)
+-- =============================
 DROP TABLE IF EXISTS product_related;
 CREATE TABLE product_related
 (
@@ -1155,7 +1238,9 @@ CREATE TABLE product_related
     INDEX idx_related (related_package_id)
 );
 
--- Bảng liên kết tag với từng gói sản phẩm (package)
+-- =============================
+-- BẢNG LIÊN KẾT TAG VỚI GÓI SẢN PHẨM (PRODUCT_TAG_MAP)
+-- =============================
 DROP TABLE IF EXISTS product_tag_map;
 CREATE TABLE product_tag_map
 (
@@ -1166,14 +1251,10 @@ CREATE TABLE product_tag_map
     FOREIGN KEY (tag_id) REFERENCES product_tags (id) ON DELETE CASCADE
 );
 
--- ======================
--- BẢNG QUẢN LÝ ĐƠN HÀNG
--- ======================
-
--- Xóa bảng orders nếu đã tồn tại (tránh lỗi khi chạy lại file)
+-- =============================
+-- BẢNG ĐƠN HÀNG (ORDERS)
+-- =============================
 DROP TABLE IF EXISTS orders;
-
--- Bảng orders: Lưu thông tin tổng quan đơn hàng digital
 CREATE TABLE orders
 (
     id              INT PRIMARY KEY AUTO_INCREMENT,                                                                                       -- Khóa chính, tự tăng
@@ -1192,10 +1273,10 @@ CREATE TABLE orders
     INDEX idx_status (status)
 );
 
--- Xóa bảng order_items nếu đã tồn tại (tránh lỗi khi chạy lại file)
+-- =============================
+-- BẢNG CHI TIẾT ĐƠN HÀNG (ORDER_ITEMS)
+-- =============================
 DROP TABLE IF EXISTS order_items;
-
--- Bảng order_items: Lưu chi tiết từng sản phẩm/gói trong đơn
 CREATE TABLE order_items
 (
     id           INT PRIMARY KEY AUTO_INCREMENT,    -- Khóa chính
@@ -1213,10 +1294,10 @@ CREATE TABLE order_items
     INDEX idx_order (order_id)
 );
 
--- Xóa bảng payment_transactions nếu đã tồn tại (tránh lỗi khi chạy lại file)
+-- =============================
+-- BẢNG GIAO DỊCH THANH TOÁN (PAYMENT_TRANSACTIONS)
+-- =============================
 DROP TABLE IF EXISTS payment_transactions;
-
--- Bảng payment_transactions: Lưu các giao dịch thanh toán cho đơn hàng
 CREATE TABLE payment_transactions
 (
     id               INT PRIMARY KEY AUTO_INCREMENT,                                                                          -- Khóa chính
@@ -1233,10 +1314,10 @@ CREATE TABLE payment_transactions
     INDEX idx_status (status)
 );
 
--- Xóa bảng order_status_logs nếu đã tồn tại
+-- =============================
+-- BẢNG LỊCH SỬ TRẠNG THÁI ĐƠN HÀNG (ORDER_STATUS_LOGS)
+-- =============================
 DROP TABLE IF EXISTS order_status_logs;
-
--- Bảng order_status_logs: Lưu lịch sử thay đổi trạng thái đơn hàng
 CREATE TABLE order_status_logs
 (
     id         INT PRIMARY KEY AUTO_INCREMENT,                                  -- Khóa chính
@@ -1251,10 +1332,10 @@ CREATE TABLE order_status_logs
     INDEX idx_order (order_id)
 );
 
--- Xóa bảng order_vouchers nếu đã tồn tại (tránh lỗi khi chạy lại file)
+-- =============================
+-- BẢNG VOUCHER ĐƠN HÀNG (ORDER_VOUCHERS)
+-- =============================
 DROP TABLE IF EXISTS order_vouchers;
-
--- Bảng order_vouchers: Lưu voucher đã áp dụng cho đơn hàng
 CREATE TABLE order_vouchers
 (
     id         INT PRIMARY KEY AUTO_INCREMENT,      -- Khóa chính
@@ -1269,7 +1350,9 @@ CREATE TABLE order_vouchers
 );
 
 -- =============================
--- TRIGGER TỰ ĐỘNG SINH ORDER_CODE CHO ĐƠN HÀNG
+-- TRIGGER TỰ ĐỘNG SINH ORDER_CODE (TRG_GENERATE_ORDER_CODE)
+-- =============================
+/*
 -- Format: yyMMdd + 7 ký tự ngẫu nhiên (A-Z, 0-9)
 -- Ví dụ: 250606S7CUJ4A
 -- Đảm bảo order_code là duy nhất nhờ UNIQUE constraint
@@ -1277,6 +1360,7 @@ CREATE TABLE order_vouchers
 -- Nếu trùng sẽ báo lỗi duplicate key (rất hiếm gặp)
 
 -- Xóa trigger sinh order_code nếu đã tồn tại (tránh lỗi khi chạy lại file)
+*/
 DROP TRIGGER IF EXISTS trg_generate_order_code;
 
 DELIMITER $$
@@ -1301,19 +1385,259 @@ BEGIN
 END$$
 DELIMITER ;
 
--- Xóa bảng cart_items nếu đã tồn tại
-DROP TABLE IF EXISTS cart_items;
-
--- Bảng cart_items: Lưu chi tiết sản phẩm/gói trong giỏ hàng
-CREATE TABLE cart_items (
-    id            INT PRIMARY KEY AUTO_INCREMENT,               -- Khóa chính
-    cart_id       INT NOT NULL,                                 -- FK cart_sessions
-    package_id    INT NOT NULL,                                 -- FK product_packages
-    quantity      INT NOT NULL DEFAULT 1,                       -- Số lượng
-    added_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,          -- Thời gian thêm vào giỏ
-    updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- Thời gian cập nhật
-    FOREIGN KEY (cart_id) REFERENCES cart_sessions(id) ON DELETE CASCADE,
-    FOREIGN KEY (package_id) REFERENCES product_packages(id)
+-- =============================
+-- BẢNG TÀI KHOẢN GỐC SẢN PHẨM (PRODUCT_ACCOUNTS)
+-- =============================
+DROP TABLE IF EXISTS product_accounts;
+CREATE TABLE product_accounts
+(
+    id         INT PRIMARY KEY AUTO_INCREMENT,
+    package_id INT NOT NULL,
+    username   VARCHAR(255),
+    password   VARCHAR(255),
+    code       VARCHAR(255),
+    extra_info TEXT,     -- Thông tin khác ngoài các trường cung cấp trên
+    expired_at DATETIME, -- Thời hạn thực sự của tài khoản gốc
+    status     ENUM ('available', 'sold', 'reserved', 'expired', 'error') DEFAULT 'available',
+    created_at TIMESTAMP                                                  DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP                                                  DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (package_id) REFERENCES product_packages (id) ON DELETE CASCADE,
+    INDEX idx_package (package_id),
+    INDEX idx_status (status),
+    INDEX idx_expired (expired_at)
 );
 
+-- =============================
+-- BẢNG LỊCH SỬ THUÊ TÀI KHOẢN (ACCOUNT_RENTALS)
+-- =============================
+DROP TABLE IF EXISTS account_rentals;
+CREATE TABLE account_rentals
+(
+    id            INT PRIMARY KEY AUTO_INCREMENT,
+    account_id    INT      NOT NULL, -- Tài khoản thực tế
+    order_item_id INT      NOT NULL, -- Liên kết với order_items
+    rental_start  DATETIME NOT NULL, -- Thời gian bắt đầu thuê
+    rental_end    DATETIME NOT NULL, -- Thời gian kết thúc thuê (hết hạn thuê)
+    status        ENUM ('active', 'expired', 'returned') DEFAULT 'active',
+    created_at    TIMESTAMP                              DEFAULT CURRENT_TIMESTAMP,
+    updated_at    TIMESTAMP                              DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (account_id) REFERENCES product_accounts (id) ON DELETE CASCADE,
+    FOREIGN KEY (order_item_id) REFERENCES order_items (id) ON DELETE CASCADE,
+    INDEX idx_account (account_id),
+    INDEX idx_order_item (order_item_id),
+    INDEX idx_status (status)
+);
 
+-- =============================
+-- BẢNG PHIÊN GIỎ HÀNG (CART_SESSIONS)
+-- =============================
+DROP TABLE IF EXISTS cart_sessions;
+CREATE TABLE cart_sessions
+(
+    id            INT PRIMARY KEY AUTO_INCREMENT,
+    user_id       INT,          -- NULL nếu là guest
+    session_token VARCHAR(100), -- Dùng cho guest, unique
+    created_at    TIMESTAMP                                 DEFAULT CURRENT_TIMESTAMP,
+    updated_at    TIMESTAMP                                 DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    status        ENUM ('active', 'abandoned', 'converted') DEFAULT 'active',
+    ip_address    VARCHAR(45),
+    user_agent    TEXT COMMENT 'Thông tin user agent của trình duyệt',
+    FOREIGN KEY (user_id) REFERENCES users (id),
+    UNIQUE KEY uq_session_token (session_token)
+);
+
+-- =============================
+-- BẢNG CHI TIẾT GIỎ HÀNG (CART_ITEMS)
+-- =============================
+DROP TABLE IF EXISTS cart_items;
+CREATE TABLE cart_items
+(
+    id         INT PRIMARY KEY AUTO_INCREMENT,                                     -- Khóa chính
+    cart_id    INT NOT NULL,                                                       -- FK cart_sessions
+    package_id INT NOT NULL,                                                       -- FK product_packages
+    quantity   INT NOT NULL DEFAULT 1,                                             -- Số lượng
+    added_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,                             -- Thời gian thêm vào giỏ
+    updated_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- Thời gian cập nhật
+    FOREIGN KEY (cart_id) REFERENCES cart_sessions (id) ON DELETE CASCADE,
+    FOREIGN KEY (package_id) REFERENCES product_packages (id)
+);
+
+-- =============================
+-- BẢNG VOUCHER ÁP DỤNG CHO GIỎ HÀNG (CART_VOUCHERS)
+-- =============================
+DROP TABLE IF EXISTS cart_vouchers;
+CREATE TABLE cart_vouchers
+(
+    id         INT PRIMARY KEY AUTO_INCREMENT,
+    cart_id    INT         NOT NULL,                -- Liên kết với cart_sessions
+    voucher_id INT         NOT NULL,                -- Liên kết với vouchers
+    code       VARCHAR(50) NOT NULL,                -- Mã voucher
+    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Thời gian áp dụng
+    FOREIGN KEY (cart_id) REFERENCES cart_sessions (id) ON DELETE CASCADE,
+    FOREIGN KEY (voucher_id) REFERENCES vouchers (id),
+    UNIQUE KEY uq_cart_voucher (cart_id, voucher_id)
+);
+
+-- =============================
+-- BẢNG LỊCH SỬ BIẾN ĐỘNG SỐ DƯ (USER_BALANCE_LOGS)
+-- =============================
+DROP TABLE IF EXISTS user_balance_logs;
+CREATE TABLE user_balance_logs
+(
+    id            INT PRIMARY KEY AUTO_INCREMENT,
+    user_id       INT            NOT NULL,
+    change_amount DECIMAL(15, 2) NOT NULL, -- Số tiền thay đổi (+/-)
+    new_balance   DECIMAL(15, 2) NOT NULL, -- Số dư sau giao dịch
+    description   VARCHAR(255),            -- Mô tả (ví dụ: "Nạp tiền qua MoMo", "Thanh toán đơn hàng #1234", ...)
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users (id)
+);
+
+-- =============================
+-- TRIGGER CẬP NHẬT SỐ DƯ USER KHI GHI LOG BIẾN ĐỘNG SỐ DƯ
+-- =============================
+DROP TRIGGER IF EXISTS trg_update_user_balance_after_log;
+DELIMITER $$
+CREATE TRIGGER trg_update_user_balance_after_log
+    AFTER INSERT
+    ON user_balance_logs
+    FOR EACH ROW
+BEGIN
+    UPDATE users
+    SET balance = NEW.new_balance
+    WHERE id = NEW.user_id;
+END$$
+DELIMITER ;
+
+-- =============================
+-- BẢNG LỊCH SỬ HOẠT ĐỘNG NGƯỜI DÙNG (USER_ACTIVITY_LOGS)
+-- =============================
+DROP TABLE IF EXISTS user_activity_logs;
+CREATE TABLE user_activity_logs
+(
+    id            INT PRIMARY KEY AUTO_INCREMENT,                                                     -- Khóa chính, tự tăng
+    user_id       INT         NOT NULL,                                                               -- ID người dùng thực hiện hành động (FK users)
+    activity_type VARCHAR(50) NOT NULL COMMENT 'login, logout, update_profile, change_password, ...', -- Loại hoạt động
+    activity_desc VARCHAR(255) COMMENT 'Mô tả chi tiết hoạt động (nếu có)',                           -- Mô tả chi tiết hoạt động
+    ip_address    VARCHAR(45) COMMENT 'Địa chỉ IP thực hiện',                                         -- Địa chỉ IP
+    user_agent    TEXT COMMENT 'Thông tin trình duyệt, thiết bị',                                     -- User agent
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Thời gian thực hiện',                  -- Thời gian thực hiện
+    FOREIGN KEY (user_id) REFERENCES users (id),                                                      -- Khóa ngoại tới bảng users
+    INDEX idx_user (user_id),                                                                         -- Index cho user_id
+    INDEX idx_type (activity_type),                                                                   -- Index cho activity_type
+    INDEX idx_created_at (created_at)                                                                 -- Index cho created_at
+);
+
+-- =============================
+-- BẢNG HÓA ĐƠN BÁN HÀNG (INVOICES)
+-- =============================
+DROP TABLE IF EXISTS invoices;
+CREATE TABLE invoices
+(
+    id              INT PRIMARY KEY AUTO_INCREMENT,                    -- Khóa chính
+    invoice_code    VARCHAR(50)    NOT NULL UNIQUE,                    -- Mã hóa đơn (có thể tự sinh, duy nhất)
+    order_id        INT            NOT NULL,                           -- Đơn hàng liên quan (FK orders, chỉ xuất hóa đơn khi orders.status = 'completed')
+    user_id         INT            NOT NULL,                           -- Người mua (FK users)
+    issued_date     TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP, -- Ngày xuất hóa đơn
+    total_amount    DECIMAL(15, 2) NOT NULL,                           -- Tổng tiền hóa đơn (trước thuế)
+    vat_rate        DECIMAL(4, 3)  NOT NULL,                           -- Tỷ lệ VAT áp dụng (0.01: hàng hóa, 0.05: dịch vụ)
+    tax_amount      DECIMAL(15, 2) NOT NULL,                           -- Số tiền VAT
+    final_amount    DECIMAL(15, 2) NOT NULL,                           -- Tổng tiền phải trả (sau thuế)
+    is_vat_included TINYINT(1)              DEFAULT 0,                 -- 0: giá chưa gồm VAT, 1: đã gồm VAT
+    buyer_name      VARCHAR(255),                                      -- Tên người mua (có thể lấy từ profile hoặc nhập tay)
+    buyer_address   VARCHAR(500),                                      -- Địa chỉ người mua
+    buyer_tax_code  VARCHAR(50),                                       -- Mã số thuế người mua (nếu có)
+    note            TEXT,                                              -- Ghi chú hóa đơn
+    FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users (id),
+    INDEX idx_order (order_id),
+    INDEX idx_user (user_id)
+);
+--
+-- HƯỚNG DẪN SỬ DỤNG TRƯỜNG VAT:
+--  - vat_rate: 0.01 cho hàng hóa (bán key/tài khoản), 0.05 cho dịch vụ (cho thuê tài khoản)
+--  - is_vat_included = 0 (giá chưa gồm VAT):
+--      tax_amount = total_amount * vat_rate
+--      final_amount = total_amount + tax_amount
+--  - is_vat_included = 1 (giá đã gồm VAT):
+--      tax_amount = final_amount * vat_rate / (1 + vat_rate)
+--      total_amount = final_amount - tax_amount
+
+-- =============================
+-- PROCEDURE TỰ ĐỘNG TÍNH VAT VÀ TẠO HÓA ĐƠN (CREATEINVOICEFORORDER)
+-- =============================
+DROP PROCEDURE IF EXISTS CreateInvoiceForOrder;
+DELIMITER //
+CREATE PROCEDURE CreateInvoiceForOrder(IN p_order_id INT)
+BEGIN
+    DECLARE v_status VARCHAR(50);
+    DECLARE v_user_id INT;
+    DECLARE v_package_type VARCHAR(10);
+    DECLARE v_total_amount DECIMAL(15,2);
+    DECLARE v_vat_rate DECIMAL(4,3);
+    DECLARE v_tax_amount DECIMAL(15,2);
+    DECLARE v_final_amount DECIMAL(15,2);
+    DECLARE v_is_vat_included TINYINT(1) DEFAULT 1;
+    DECLARE v_invoice_code VARCHAR(50);
+    DECLARE v_count_types INT;
+    DECLARE v_buyer_name VARCHAR(255);
+    DECLARE v_buyer_address VARCHAR(500);
+
+    -- Kiểm tra trạng thái đơn hàng
+    SELECT status, user_id INTO v_status, v_user_id FROM orders WHERE id = p_order_id;
+    IF v_status != 'completed' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Chỉ xuất hóa đơn cho đơn hàng đã hoàn thành (completed)';
+    END IF;
+
+    -- Kiểm tra loại package trong đơn hàng
+    SELECT COUNT(DISTINCT pp.package_type)
+      INTO v_count_types
+    FROM order_items oi
+    JOIN product_packages pp ON oi.package_id = pp.id
+    WHERE oi.order_id = p_order_id;
+
+    IF v_count_types > 1 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Đơn hàng có cả bán và cho thuê, cần tách hóa đơn hoặc xử lý thủ công';
+    END IF;
+
+    -- Lấy loại package và tổng tiền (đã gồm VAT)
+    SELECT MAX(pp.package_type), SUM(oi.final_price)
+      INTO v_package_type, v_total_amount
+    FROM order_items oi
+    JOIN product_packages pp ON oi.package_id = pp.id
+    WHERE oi.order_id = p_order_id;
+
+    -- Xác định VAT rate
+    SET v_vat_rate = IF(v_package_type = 'sale', 0.01, 0.05);
+
+    -- Tách VAT từ giá đã gồm VAT
+    SET v_tax_amount = v_total_amount * v_vat_rate / (1 + v_vat_rate);
+    SET v_final_amount = v_total_amount;
+    SET v_total_amount = v_total_amount - v_tax_amount;
+    SET v_is_vat_included = 1;
+
+    -- Sinh mã hóa đơn (HD + yyMMdd + 6 ký tự ngẫu nhiên)
+    SET v_invoice_code = CONCAT(
+        'HD',
+        DATE_FORMAT(NOW(), '%y%m%d'),
+        SUBSTRING('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', FLOOR(1 + (RAND() * 36)), 1),
+        SUBSTRING('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', FLOOR(1 + (RAND() * 36)), 1),
+        SUBSTRING('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', FLOOR(1 + (RAND() * 36)), 1),
+        SUBSTRING('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', FLOOR(1 + (RAND() * 36)), 1),
+        SUBSTRING('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', FLOOR(1 + (RAND() * 36)), 1),
+        SUBSTRING('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', FLOOR(1 + (RAND() * 36)), 1)
+    );
+
+    -- Lấy thông tin người mua
+    SELECT full_name, address INTO v_buyer_name, v_buyer_address FROM users WHERE id = v_user_id;
+
+    -- Tạo bản ghi hóa đơn
+    INSERT INTO invoices (
+        invoice_code, order_id, user_id, issued_date, total_amount, vat_rate, tax_amount, final_amount, is_vat_included, buyer_name, buyer_address
+    ) VALUES (
+        v_invoice_code, p_order_id, v_user_id, NOW(), v_total_amount, v_vat_rate, v_tax_amount, v_final_amount, v_is_vat_included, v_buyer_name, v_buyer_address
+    );
+END //
+DELIMITER ;
+
+call CreateInvoiceForOrder(2); -- Thay 1 bằng ID đơn hàng thực tế để tạo hóa đơn

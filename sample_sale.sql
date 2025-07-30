@@ -225,56 +225,57 @@ VALUES ('Chào mừng đến với Divine Shop!',
 -- DỮ LIỆU MẪU USERS
 -- =============================
 -- Dữ liệu mẫu cho bảng users
-INSERT INTO users (username, password, email, role, permissions, two_factor_enabled, two_factor_secret,
-                   full_name, phone, gender, avatar, address, city, district, ward, postal_code,
-                   balance, total_spent, created_at, updated_at, deleted_at, status, email_verified,
-                   last_login_at, registration_ip, failed_login_attempts, locked_until,
-                   referral_code, referred_by)
-VALUES ('customer01', SHA2('customer01password', 256), 'customer01@email.com', 'customer', NULL, 0, NULL,
-        'Nguyen Van A', '0901234567', 'Nam', '/avatars/user1.jpg', '123 Main St', 'Hanoi', 'Ba Dinh', 'Phuc Xa',
-        '100000',
-        500000, 1500000, NOW(), NOW(), NULL, 'active', 1, NOW(), '192.168.1.10', 0, NULL, 'REFCUST01', NULL),
+INSERT INTO users (
+    username, password, email, role, permissions, two_factor_enabled, two_factor_secret,
+    full_name, phone, gender, avatar, address, city, district, ward, postal_code,
+    balance, total_spent, created_at, updated_at, deleted_at, status, email_verified,
+    last_login_at, registration_ip, failed_login_attempts, last_failed_login, locked_until,
+    referral_code, referred_by
+)
+VALUES
+('customer01', SHA2('customer01password', 256), 'customer01@email.com', 'customer', NULL, 0, NULL,
+    'Nguyen Van A', '0901234567', 'Nam', '/avatars/user1.jpg', '123 Main St', 'Hanoi', 'Ba Dinh', 'Phuc Xa', '100000',
+    500000, 1500000, NOW(), NOW(), NULL, 'active', 1, NOW(), '192.168.1.10', 0, NULL, NULL, 'REFCUST01', NULL),
 
-       ('admin01', SHA2('admin01password', 256), 'admin01@email.com', 'admin', '{
-         "manage_users": true
-       }', 1, '2FASECRETKEY123',
-        'Tran Thi B', '0912345678', 'Nữ', '/avatars/admin1.jpg', '456 Admin Rd', 'HCM', 'District 1', 'Ben Nghe',
-        '700000',
-        0, 0, NOW(), NOW(), NULL, 'active', 1, NOW(), '192.168.1.11', 0, NULL, 'REFADMIN01', NULL),
+('admin01', SHA2('admin01password', 256), 'admin01@email.com', 'admin', '{
+    "manage_users": true
+}', 1, '2FASECRETKEY123',
+    'Tran Thi B', '0912345678', 'Nữ', '/avatars/admin1.jpg', '456 Admin Rd', 'HCM', 'District 1', 'Ben Nghe', '700000',
+    0, 0, NOW(), NOW(), NULL, 'active', 1, NOW(), '192.168.1.11', 0, NULL, NULL, 'REFADMIN01', NULL),
 
-       ('staff01', SHA2('staff01password', 256), 'staff01@email.com', 'staff', '{
-         "manage_orders": true
-       }', 0, NULL,
-        'Le Minh C', NULL, 'Khác', NULL, NULL, NULL, NULL, NULL, NULL,
-        10000, 50000, NOW(), NOW(), NULL, 'active', 0, NULL, '192.168.1.12', 0, NULL, 'REFSTAFF01', 1),
+('staff01', SHA2('staff01password', 256), 'staff01@email.com', 'staff', '{
+    "manage_orders": true
+}', 0, NULL,
+    'Le Minh C', NULL, 'Khác', NULL, NULL, NULL, NULL, NULL, NULL,
+    10000, 50000, NOW(), NOW(), NULL, 'active', 0, NULL, '192.168.1.12', 0, NULL, NULL, 'REFSTAFF01', 1),
 
-       ('customer02', SHA2('customer02password', 256), 'customer02@email.com', 'customer', NULL, 0, NULL,
-        'Pham Van D', '0987654321', 'Nam', NULL, '789 Customer Ave', 'Da Nang', NULL, NULL, '550000',
-        0, 200000, NOW(), NOW(), NULL, 'active', 0, NULL, '192.168.1.13', 0, NULL, 'REFCUST02', 1),
+('customer02', SHA2('customer02password', 256), 'customer02@email.com', 'customer', NULL, 0, NULL,
+    'Pham Van D', '0987654321', 'Nam', NULL, '789 Customer Ave', 'Da Nang', NULL, NULL, '550000',
+    0, 200000, NOW(), NOW(), NULL, 'active', 0, NULL, '192.168.1.13', 0, NULL, NULL, 'REFCUST02', 1),
 
-       ('customer03', SHA2('customer03password', 256), 'customer03@email.com', 'customer', NULL, 0, NULL,
-        'Nguyen Thi E', '0911222333', 'Nữ', '/avatars/user3.jpg', '321 Main St', 'Hanoi', 'Dong Da', 'Lang Ha', '100001',
-        0, 0, NOW(), NOW(), NULL, 'suspended', 0, NULL, NULL, 0, DATE_ADD(NOW(), INTERVAL 7 DAY), 'REFCUST03', NULL),
+('customer03', SHA2('customer03password', 256), 'customer03@email.com', 'customer', NULL, 0, NULL,
+    'Nguyen Thi E', '0911222333', 'Nữ', '/avatars/user3.jpg', '321 Main St', 'Hanoi', 'Dong Da', 'Lang Ha', '100001',
+    0, 0, NOW(), NOW(), NULL, 'inactive', 0, NULL, NULL, 0, NULL, DATE_ADD(NOW(), INTERVAL 7 DAY), 'REFCUST03', NULL),
 
-       ('staff02', SHA2('staff02password', 256), 'staff02@email.com', 'staff', '{
-         "manage_orders": true, "manage_products": true
-       }', 0, NULL,
-        'Pham Thi F', NULL, 'Khác', NULL, NULL, NULL, NULL, NULL, NULL,
-        0, 0, NOW(), NOW(), NOW(), 'banned', 1, NOW(), '192.168.1.14', 0, NULL, 'REFSTAFF02', NULL),
+('staff02', SHA2('staff02password', 256), 'staff02@email.com', 'staff', '{
+    "manage_orders": true, "manage_products": true
+}', 0, NULL,
+    'Pham Thi F', NULL, 'Khác', NULL, NULL, NULL, NULL, NULL, NULL,
+    0, 0, NOW(), NOW(), NOW(), 'banned', 1, NOW(), '192.168.1.14', 0, NULL, NULL, 'REFSTAFF02', NULL),
 
-       ('admin02', SHA2('admin02password', 256), 'admin02@email.com', 'admin', '{
-         "manage_users": true, "manage_orders": true, "manage_products": true, "view_reports": true
-       }', 1, '2FASECRETKEY456',
-        'Le Van G', '0933444555', 'Nam', '/avatars/admin2.jpg', '789 Admin St', 'HCM', 'District 3', 'Ward 5', '700001',
-        0, 0, NOW(), NOW(), NULL, 'active', 1, NOW(), '192.168.1.15', 0, NULL, 'REFADMIN02', 1),
+('admin02', SHA2('admin02password', 256), 'admin02@email.com', 'admin', '{
+    "manage_users": true, "manage_orders": true, "manage_products": true, "view_reports": true
+}', 1, '2FASECRETKEY456',
+    'Le Van G', '0933444555', 'Nam', '/avatars/admin2.jpg', '789 Admin St', 'HCM', 'District 3', 'Ward 5', '700001',
+    0, 0, NOW(), NOW(), NULL, 'active', 1, NOW(), '192.168.1.15', 0, NULL, NULL, 'REFADMIN02', 1),
 
-       ('customer04', SHA2('customer04password', 256), 'customer04@email.com', 'customer', NULL, 0, NULL,
-        'Tran Quoc H', NULL, 'Khác', NULL, NULL, NULL, NULL, NULL, NULL,
-        0, 0, NOW(), NOW(), NULL, 'active', 1, NOW(), '192.168.1.16', 0, NULL, 'REFCUST04', 2),
+('customer04', SHA2('customer04password', 256), 'customer04@email.com', 'customer', NULL, 0, NULL,
+    'Tran Quoc H', NULL, 'Khác', NULL, NULL, NULL, NULL, NULL, NULL,
+    0, 0, NOW(), NOW(), NULL, 'active', 1, NOW(), '192.168.1.16', 0, NULL, NULL, 'REFCUST04', 2),
 
-       ('customer05', SHA2('customer05password', 256), 'customer05@email.com', 'customer', NULL, 0, NULL,
-        'Le Thi I', '0977666555', 'Nữ', NULL, NULL, NULL, NULL, NULL, NULL,
-        0, 0, NOW(), NOW(), NOW(), 'banned', 0, NULL, '192.168.1.17', 5, DATE_ADD(NOW(), INTERVAL 30 DAY), 'REFCUST05', NULL);
+('customer05', SHA2('customer05password', 256), 'customer05@email.com', 'customer', NULL, 0, NULL,
+    'Le Thi I', '0977666555', 'Nữ', NULL, NULL, NULL, NULL, NULL, NULL,
+    0, 0, NOW(), NOW(), NOW(), 'banned', 0, NULL, '192.168.1.17', 5, NOW(), DATE_ADD(NOW(), INTERVAL 30 DAY), 'REFCUST05', NULL);
 
 -- =============================
 -- DỮ LIỆU MẪU DANH MỤC SẢN PHẨM (PRODUCT_CATEGORIES)

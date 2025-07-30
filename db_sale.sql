@@ -1,4 +1,4 @@
-/*
+﻿/*
 DROP DATABASE IF EXISTS db_sale;
 CREATE DATABASE db_sale DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
   */
@@ -1115,7 +1115,7 @@ CREATE TABLE product_packages
     package_type      ENUM ('sale', 'rental') DEFAULT 'sale' COMMENT 'sale: bán đứt, rental: cho thuê',
 
     -- Thông tin VAT và cách tính (1% cho sale, 5% cho rental)
-    vat_rate          DECIMAL(4, 3)  NOT NULL DEFAULT 0.01 COMMENT 'Tỷ lệ VAT áp dụng cho gói này (0.01 = 1%, 0.05 = 5%)',
+    vat_rate          DECIMAL(4, 3)  NOT NULL DEFAULT 0.01 COMMENT 'Tỷ lệ VAT áp dụng cho gói này (lấy từ vat_settings)',
     status            TINYINT(1)              DEFAULT 1, -- 1: active, 0: inactive
     max_cart_quantity TINYINT(1)              DEFAULT 0 COMMENT 'Số lượng tối đa cho phép trong giỏ hàng (0: không giới hạn, 1: không cho phép thêm nhiều hơn 1)',
     created_at        TIMESTAMP               DEFAULT CURRENT_TIMESTAMP,
@@ -1127,6 +1127,28 @@ CREATE TABLE product_packages
     INDEX idx_price (price),
     INDEX idx_percent_off (percent_off)
 );
+
+-- =============================
+-- BẢNG CẤU HÌNH VAT (VAT_SETTINGS)
+-- =============================
+DROP TABLE IF EXISTS vat_settings;
+CREATE TABLE vat_settings
+(
+    id           INT PRIMARY KEY AUTO_INCREMENT,
+    package_type ENUM('sale', 'rental') NOT NULL UNIQUE COMMENT 'Loại gói sản phẩm',
+    vat_rate     DECIMAL(4, 3) NOT NULL COMMENT 'Tỷ lệ VAT (0.01 = 1%, 0.05 = 5%)',
+    description  VARCHAR(255) COMMENT 'Mô tả',
+    is_active    TINYINT(1) DEFAULT 1 COMMENT '1: active, 0: inactive',
+    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_package_type (package_type),
+    INDEX idx_is_active (is_active)
+);
+
+-- Thêm dữ liệu mặc định cho VAT
+INSERT INTO vat_settings (package_type, vat_rate, description, is_active) VALUES
+('sale', 0.01, 'VAT cho hàng hóa (bán key/tài khoản)', 1),
+('rental', 0.05, 'VAT cho dịch vụ (cho thuê tài khoản)', 1);
 
 -- =============================
 -- BẢNG VOUCHER (VOUCHERS)
@@ -1644,7 +1666,7 @@ CREATE TABLE invoices
     user_id         INT            NOT NULL,                           -- Người mua (FK users)
     issued_date     TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP, -- Ngày xuất hóa đơn
     total_amount    DECIMAL(15, 2) NOT NULL,                           -- Tổng tiền hóa đơn (trước thuế)
-    vat_rate        DECIMAL(4, 3)  NOT NULL,                           -- Tỷ lệ VAT áp dụng (0.01: hàng hóa, 0.05: dịch vụ)
+    vat_rate        DECIMAL(4, 3)  NOT NULL,                           -- Tỷ lệ VAT áp dụng (lấy từ vat_settings)
     tax_amount      DECIMAL(15, 2) NOT NULL,                           -- Số tiền VAT
     final_amount    DECIMAL(15, 2) NOT NULL,                           -- Tổng tiền phải trả (sau thuế)
     is_vat_included TINYINT(1)              DEFAULT 0,                 -- 0: giá chưa gồm VAT, 1: đã gồm VAT
@@ -1659,7 +1681,7 @@ CREATE TABLE invoices
 );
 --
 -- HƯỚNG DẪN SỬ DỤNG TRƯỜNG VAT:
---  - vat_rate: 0.01 cho hàng hóa (bán key/tài khoản), 0.05 cho dịch vụ (cho thuê tài khoản)
+--  - vat_rate: Lấy từ bảng vat_settings theo package_type
 --  - is_vat_included = 0 (giá chưa gồm VAT):
 --      tax_amount = total_amount * vat_rate
 --      final_amount = total_amount + tax_amount
@@ -1711,8 +1733,8 @@ BEGIN
     JOIN product_packages pp ON oi.package_id = pp.id
     WHERE oi.order_id = p_order_id;
 
-    -- Xác định VAT rate
-    SET v_vat_rate = IF(v_package_type = 'sale', 0.01, 0.05);
+    -- Xác định VAT rate (lấy từ bảng cấu hình)
+    SET v_vat_rate = GetVatRate(v_package_type);
 
     -- Tách VAT từ giá đã gồm VAT
     SET v_tax_amount = v_total_amount * v_vat_rate / (1 + v_vat_rate);
@@ -3180,15 +3202,15 @@ CREATE TRIGGER update_product_totals_after_package_insert
     AFTER INSERT ON product_packages
     FOR EACH ROW
 BEGIN
-    UPDATE products 
+    UPDATE products
     SET total_stock = (
-        SELECT COALESCE(SUM(stock_quantity), 0) 
-        FROM product_packages 
+        SELECT COALESCE(SUM(stock_quantity), 0)
+        FROM product_packages
         WHERE product_id = NEW.product_id AND status = 1
     ),
     total_sold = (
-        SELECT COALESCE(SUM(sold_count), 0) 
-        FROM product_packages 
+        SELECT COALESCE(SUM(sold_count), 0)
+        FROM product_packages
         WHERE product_id = NEW.product_id AND status = 1
     )
     WHERE id = NEW.product_id;
@@ -3199,15 +3221,15 @@ CREATE TRIGGER update_product_totals_after_package_update
     AFTER UPDATE ON product_packages
     FOR EACH ROW
 BEGIN
-    UPDATE products 
+    UPDATE products
     SET total_stock = (
-        SELECT COALESCE(SUM(stock_quantity), 0) 
-        FROM product_packages 
+        SELECT COALESCE(SUM(stock_quantity), 0)
+        FROM product_packages
         WHERE product_id = NEW.product_id AND status = 1
     ),
     total_sold = (
-        SELECT COALESCE(SUM(sold_count), 0) 
-        FROM product_packages 
+        SELECT COALESCE(SUM(sold_count), 0)
+        FROM product_packages
         WHERE product_id = NEW.product_id AND status = 1
     )
     WHERE id = NEW.product_id;
@@ -3218,15 +3240,15 @@ CREATE TRIGGER update_product_totals_after_package_delete
     AFTER DELETE ON product_packages
     FOR EACH ROW
 BEGIN
-    UPDATE products 
+    UPDATE products
     SET total_stock = (
-        SELECT COALESCE(SUM(stock_quantity), 0) 
-        FROM product_packages 
+        SELECT COALESCE(SUM(stock_quantity), 0)
+        FROM product_packages
         WHERE product_id = OLD.product_id AND status = 1
     ),
     total_sold = (
-        SELECT COALESCE(SUM(sold_count), 0) 
-        FROM product_packages 
+        SELECT COALESCE(SUM(sold_count), 0)
+        FROM product_packages
         WHERE product_id = OLD.product_id AND status = 1
     )
     WHERE id = OLD.product_id;
@@ -3240,15 +3262,37 @@ READS SQL DATA
 DETERMINISTIC
 BEGIN
     DECLARE v_count INT DEFAULT 0;
-    
+
     SELECT COUNT(*) INTO v_count
-    FROM product_categories 
+    FROM product_categories
     WHERE id = p_category_id AND status = 1;
-    
+
     RETURN v_count > 0;
 END//
 
--- 3. FUNCTION: Tạo slug tự động từ tên sản phẩm
+-- 3. FUNCTION: Lấy VAT rate theo package type
+DROP FUNCTION IF EXISTS GetVatRate//
+CREATE FUNCTION GetVatRate(p_package_type VARCHAR(10))
+RETURNS DECIMAL(4,3)
+READS SQL DATA
+DETERMINISTIC
+BEGIN
+    DECLARE v_vat_rate DECIMAL(4,3) DEFAULT 0.01;
+    
+    SELECT vat_rate INTO v_vat_rate
+    FROM vat_settings 
+    WHERE package_type = p_package_type AND is_active = 1
+    LIMIT 1;
+    
+    -- Nếu không tìm thấy, trả về mặc định
+    IF v_vat_rate IS NULL THEN
+        SET v_vat_rate = IF(p_package_type = 'rental', 0.05, 0.01);
+    END IF;
+    
+    RETURN v_vat_rate;
+END//
+
+-- 4. FUNCTION: Tạo slug tự động từ tên sản phẩm
 DROP FUNCTION IF EXISTS GenerateProductSlug//
 CREATE FUNCTION GenerateProductSlug(p_name VARCHAR(255))
 RETURNS VARCHAR(255)
@@ -3258,7 +3302,7 @@ BEGIN
     DECLARE v_slug VARCHAR(255);
     DECLARE v_counter INT DEFAULT 0;
     DECLARE v_final_slug VARCHAR(255);
-    
+
     -- Tạo slug cơ bản
     SET v_slug = LOWER(p_name);
     SET v_slug = REPLACE(v_slug, ' ', '-');
@@ -3329,19 +3373,19 @@ BEGIN
     SET v_slug = REPLACE(v_slug, 'ỹ', 'y');
     SET v_slug = REPLACE(v_slug, 'ỵ', 'y');
     SET v_slug = REPLACE(v_slug, 'đ', 'd');
-    
+
     -- Loại bỏ ký tự đặc biệt
     SET v_slug = REGEXP_REPLACE(v_slug, '[^a-z0-9-]', '');
     SET v_slug = REGEXP_REPLACE(v_slug, '-+', '-');
     SET v_slug = TRIM(BOTH '-' FROM v_slug);
-    
+
     -- Kiểm tra slug đã tồn tại chưa và thêm số nếu cần
     SET v_final_slug = v_slug;
     WHILE EXISTS(SELECT 1 FROM products WHERE slug = v_final_slug) DO
         SET v_counter = v_counter + 1;
         SET v_final_slug = CONCAT(v_slug, '-', v_counter);
     END WHILE;
-    
+
     RETURN v_final_slug;
 END//
 
@@ -3418,11 +3462,11 @@ BEGIN
            (SELECT MIN(price) FROM product_packages WHERE product_id = p.id AND status = 1) as min_price,
            (SELECT MAX(price) FROM product_packages WHERE product_id = p.id AND status = 1) as max_price,
            -- Thống kê đánh giá (tổng hợp từ tất cả packages)
-           (SELECT COUNT(*) FROM product_reviews pr 
-            JOIN product_packages pp ON pr.package_id = pp.id 
+           (SELECT COUNT(*) FROM product_reviews pr
+            JOIN product_packages pp ON pr.package_id = pp.id
             WHERE pp.product_id = p.id) as review_count,
-           (SELECT AVG(pr.rating) FROM product_reviews pr 
-            JOIN product_packages pp ON pr.package_id = pp.id 
+           (SELECT AVG(pr.rating) FROM product_reviews pr
+            JOIN product_packages pp ON pr.package_id = pp.id
             WHERE pp.product_id = p.id) as avg_rating
     FROM products p
     LEFT JOIN product_categories pc ON p.category_id = pc.id
@@ -3665,7 +3709,7 @@ CREATE PROCEDURE GetProductsByCategory(
 )
 BEGIN
     DECLARE v_sql TEXT;
-    
+
     IF p_include_subcategories THEN
         -- Lấy sản phẩm từ category và tất cả category con
         SET v_sql = CONCAT(
@@ -3694,7 +3738,7 @@ BEGIN
             ' ORDER BY p.created_at DESC'
         );
     END IF;
-    
+
     -- Thêm LIMIT và OFFSET
     IF p_limit IS NOT NULL THEN
         SET v_sql = CONCAT(v_sql, ' LIMIT ', IFNULL(p_limit, 20));
@@ -3770,7 +3814,7 @@ BEGIN
     DECLARE v_package_type VARCHAR(10);
     DECLARE v_package_description TEXT;
     DECLARE v_vat_rate DECIMAL(4,3);
-    
+
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
         BEGIN
             GET DIAGNOSTICS CONDITION 1
@@ -3782,15 +3826,15 @@ BEGIN
     START TRANSACTION;
 
     -- Tạo product trước
-    CALL CreateProduct(p_product_name, p_product_slug, p_category_id, 
+    CALL CreateProduct(p_product_name, p_product_slug, p_category_id,
                       p_product_description, p_product_image_url, p_product_status);
-    
+
     SET v_product_id = LAST_INSERT_ID();
 
     -- Thêm các packages
     IF p_packages_json IS NOT NULL THEN
         SET v_package_count = JSON_LENGTH(p_packages_json);
-        
+
         WHILE v_i < v_package_count DO
             SET v_package_name = JSON_UNQUOTE(JSON_EXTRACT(p_packages_json, CONCAT('$[', v_i, '].name')));
             SET v_package_price = JSON_UNQUOTE(JSON_EXTRACT(p_packages_json, CONCAT('$[', v_i, '].price')));
@@ -3798,19 +3842,19 @@ BEGIN
             SET v_package_stock = JSON_UNQUOTE(JSON_EXTRACT(p_packages_json, CONCAT('$[', v_i, '].stock_quantity')));
             SET v_package_type = JSON_UNQUOTE(JSON_EXTRACT(p_packages_json, CONCAT('$[', v_i, '].package_type')));
             SET v_package_description = JSON_UNQUOTE(JSON_EXTRACT(p_packages_json, CONCAT('$[', v_i, '].description')));
-            
-            -- Tính VAT rate dựa trên package_type
-            SET v_vat_rate = CASE WHEN v_package_type = 'rental' THEN 0.05 ELSE 0.01 END;
-            
+
+            -- Tính VAT rate dựa trên package_type (lấy từ bảng cấu hình)
+            SET v_vat_rate = GetVatRate(IFNULL(v_package_type, 'sale'));
+
             INSERT INTO product_packages (
-                product_id, name, description, price, old_price, 
+                product_id, name, description, price, old_price,
                 stock_quantity, package_type, vat_rate, status
             ) VALUES (
-                v_product_id, v_package_name, v_package_description, 
-                v_package_price, v_package_old_price, IFNULL(v_package_stock, 0), 
+                v_product_id, v_package_name, v_package_description,
+                v_package_price, v_package_old_price, IFNULL(v_package_stock, 0),
                 IFNULL(v_package_type, 'sale'), v_vat_rate, 1
             );
-            
+
             SET v_i = v_i + 1;
         END WHILE;
     END IF;
@@ -3896,7 +3940,7 @@ BEGIN
     DECLARE v_error_msg VARCHAR(255);
     DECLARE v_product_id INT;
     DECLARE v_vat_rate DECIMAL(4,3);
-    
+
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
         BEGIN
             GET DIAGNOSTICS CONDITION 1
@@ -3915,8 +3959,8 @@ BEGIN
     -- Lấy product_id
     SELECT product_id INTO v_product_id FROM product_packages WHERE id = p_package_id;
 
-    -- Tính VAT rate
-    SET v_vat_rate = CASE WHEN IFNULL(p_package_type, 'sale') = 'rental' THEN 0.05 ELSE 0.01 END;
+    -- Tính VAT rate (lấy từ bảng cấu hình)
+    SET v_vat_rate = GetVatRate(IFNULL(p_package_type, 'sale'));
 
     -- Cập nhật package
     UPDATE product_packages
@@ -3947,7 +3991,7 @@ BEGIN
     DECLARE v_error_msg VARCHAR(255);
     DECLARE v_product_id INT;
     DECLARE v_order_count INT DEFAULT 0;
-    
+
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
         BEGIN
             GET DIAGNOSTICS CONDITION 1
@@ -3972,11 +4016,11 @@ BEGIN
     ELSE
         -- Hard delete: kiểm tra có order liên quan không
         SELECT COUNT(*) INTO v_order_count FROM order_items WHERE package_id = p_package_id;
-        
+
         IF v_order_count > 0 THEN
             SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Không thể xóa package vì có đơn hàng liên quan';
         END IF;
-        
+
         DELETE FROM product_packages WHERE id = p_package_id;
     END IF;
 
@@ -3993,34 +4037,34 @@ CREATE PROCEDURE GetProductPackageStats(
     IN p_package_type VARCHAR(10)
 )
 BEGIN
-    SELECT 
+    SELECT
         p.id as product_id,
         p.name as product_name,
         p.slug as product_slug,
         pc.name as category_name,
         p.status as product_status,
-        
+
         -- Thống kê packages
         COUNT(pp.id) as total_packages,
         COUNT(CASE WHEN pp.status = 1 THEN 1 END) as active_packages,
         COUNT(CASE WHEN pp.package_type = 'sale' THEN 1 END) as sale_packages,
         COUNT(CASE WHEN pp.package_type = 'rental' THEN 1 END) as rental_packages,
-        
+
         -- Thống kê giá
         MIN(CASE WHEN pp.status = 1 THEN pp.price END) as min_price,
         MAX(CASE WHEN pp.status = 1 THEN pp.price END) as max_price,
         AVG(CASE WHEN pp.status = 1 THEN pp.price END) as avg_price,
-        
+
         -- Thống kê tồn kho
         SUM(CASE WHEN pp.status = 1 THEN pp.stock_quantity ELSE 0 END) as total_stock,
         SUM(CASE WHEN pp.status = 1 THEN pp.sold_count ELSE 0 END) as total_sold,
-        
+
         -- Thống kê doanh thu ước tính
         SUM(CASE WHEN pp.status = 1 THEN (pp.sold_count * pp.price) ELSE 0 END) as estimated_revenue,
-        
+
         p.created_at,
         p.updated_at
-        
+
     FROM products p
     LEFT JOIN product_categories pc ON p.category_id = pc.id
     LEFT JOIN product_packages pp ON p.id = pp.product_id
@@ -4036,7 +4080,7 @@ DROP PROCEDURE IF EXISTS ValidateProductPackageConsistency//
 CREATE PROCEDURE ValidateProductPackageConsistency()
 BEGIN
     -- Kiểm tra products có total_stock/total_sold không khớp với packages
-    SELECT 
+    SELECT
         p.id,
         p.name,
         p.total_stock as product_total_stock,
@@ -4044,15 +4088,15 @@ BEGIN
         COALESCE(SUM(CASE WHEN pp.status = 1 THEN pp.stock_quantity ELSE 0 END), 0) as calculated_stock,
         COALESCE(SUM(CASE WHEN pp.status = 1 THEN pp.sold_count ELSE 0 END), 0) as calculated_sold,
         -- Kiểm tra có lệch không
-        CASE 
-            WHEN p.total_stock != COALESCE(SUM(CASE WHEN pp.status = 1 THEN pp.stock_quantity ELSE 0 END), 0) 
-            THEN 'STOCK_MISMATCH' 
-            ELSE 'OK' 
+        CASE
+            WHEN p.total_stock != COALESCE(SUM(CASE WHEN pp.status = 1 THEN pp.stock_quantity ELSE 0 END), 0)
+            THEN 'STOCK_MISMATCH'
+            ELSE 'OK'
         END as stock_status,
-        CASE 
-            WHEN p.total_sold != COALESCE(SUM(CASE WHEN pp.status = 1 THEN pp.sold_count ELSE 0 END), 0) 
-            THEN 'SOLD_MISMATCH' 
-            ELSE 'OK' 
+        CASE
+            WHEN p.total_sold != COALESCE(SUM(CASE WHEN pp.status = 1 THEN pp.sold_count ELSE 0 END), 0)
+            THEN 'SOLD_MISMATCH'
+            ELSE 'OK'
         END as sold_status
     FROM products p
     LEFT JOIN product_packages pp ON p.id = pp.product_id
@@ -4067,7 +4111,7 @@ CREATE PROCEDURE FixProductPackageConsistency()
 BEGIN
     DECLARE v_error_msg VARCHAR(255);
     DECLARE v_fixed_count INT DEFAULT 0;
-    
+
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
         BEGIN
             GET DIAGNOSTICS CONDITION 1
@@ -4112,7 +4156,7 @@ CREATE PROCEDURE CreatePackageReview(
 BEGIN
     DECLARE v_error_msg VARCHAR(255);
     DECLARE v_product_id INT;
-    
+
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
         BEGIN
             GET DIAGNOSTICS CONDITION 1
@@ -4159,12 +4203,12 @@ CREATE PROCEDURE GetPackageReviews(
 BEGIN
     DECLARE v_limit INT DEFAULT 20;
     DECLARE v_offset INT DEFAULT 0;
-    
+
     -- Gán giá trị cho LIMIT và OFFSET
     IF p_limit IS NOT NULL THEN
         SET v_limit = p_limit;
     END IF;
-    
+
     IF p_offset IS NOT NULL THEN
         SET v_offset = p_offset;
     END IF;
@@ -4198,7 +4242,7 @@ CREATE PROCEDURE GetPackageReviewStats(
     IN p_package_id INT
 )
 BEGIN
-    SELECT 
+    SELECT
         p_package_id as package_id,
         pp.name as package_name,
         pp.price as package_price,
@@ -4220,7 +4264,7 @@ BEGIN
     FROM product_packages pp
     JOIN products p ON pp.product_id = p.id
     LEFT JOIN (
-        SELECT 
+        SELECT
             package_id,
             p.id as product_id,
             p.name as product_name,
@@ -4247,7 +4291,7 @@ CREATE PROCEDURE GetProductReviewsSummary(
 )
 BEGIN
     -- Thống kê tổng hợp của product (từ tất cả packages)
-    SELECT 
+    SELECT
         p.id as product_id,
         p.name as product_name,
         p.slug as product_slug,
@@ -4267,7 +4311,7 @@ BEGIN
     GROUP BY p.id, p.name, p.slug;
 
     -- Chi tiết đánh giá từng package
-    SELECT 
+    SELECT
         pp.id as package_id,
         pp.name as package_name,
         pp.price as package_price,
@@ -4297,7 +4341,7 @@ BEGIN
     DECLARE v_error_msg VARCHAR(255);
     DECLARE v_user_id INT;
     DECLARE v_package_id INT;
-    
+
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
         BEGIN
             GET DIAGNOSTICS CONDITION 1
@@ -4319,7 +4363,7 @@ BEGIN
     END IF;
 
     -- Lấy thông tin để trả về
-    SELECT user_id, package_id INTO v_user_id, v_package_id 
+    SELECT user_id, package_id INTO v_user_id, v_package_id
     FROM product_reviews WHERE id = p_review_id;
 
     -- Cập nhật đánh giá
@@ -4341,7 +4385,7 @@ CREATE PROCEDURE DeletePackageReview(
 BEGIN
     DECLARE v_error_msg VARCHAR(255);
     DECLARE v_package_id INT;
-    
+
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
         BEGIN
             GET DIAGNOSTICS CONDITION 1
@@ -4367,176 +4411,87 @@ BEGIN
     SELECT p_review_id as review_id, v_package_id as package_id, 'Xóa đánh giá thành công' as message;
 END//
 
+-- =============================
+-- STORED PROCEDURES CHO QUẢN LÝ VAT SETTINGS
+-- =============================
+
+-- 25. Lấy VAT rate hiện tại
+DROP PROCEDURE IF EXISTS GetVatSettings//
+CREATE PROCEDURE GetVatSettings()
+BEGIN
+    SELECT id, package_type, vat_rate, description, is_active, created_at, updated_at
+    FROM vat_settings 
+    ORDER BY package_type;
+END//
+
+-- 26. Cập nhật VAT rate
+DROP PROCEDURE IF EXISTS UpdateVatRate//
+CREATE PROCEDURE UpdateVatRate(
+    IN p_package_type VARCHAR(10),
+    IN p_vat_rate DECIMAL(4,3),
+    IN p_description VARCHAR(255)
+)
+BEGIN
+    DECLARE v_error_msg VARCHAR(255);
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+        BEGIN
+            GET DIAGNOSTICS CONDITION 1
+                v_error_msg = MESSAGE_TEXT;
+            ROLLBACK;
+            RESIGNAL SET MESSAGE_TEXT = v_error_msg;
+        END;
+
+    START TRANSACTION;
+
+    -- Kiểm tra VAT rate hợp lệ (0.001 đến 0.999 = 0.1% đến 99.9%)
+    IF p_vat_rate < 0.001 OR p_vat_rate > 0.999 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'VAT rate phải từ 0.001 đến 0.999';
+    END IF;
+
+    -- Cập nhật hoặc thêm mới VAT setting
+    INSERT INTO vat_settings (package_type, vat_rate, description, is_active)
+    VALUES (p_package_type, p_vat_rate, p_description, 1)
+    ON DUPLICATE KEY UPDATE
+        vat_rate = p_vat_rate,
+        description = IFNULL(p_description, description),
+        updated_at = CURRENT_TIMESTAMP;
+
+    COMMIT;
+    SELECT p_package_type as package_type, p_vat_rate as vat_rate, 'Cập nhật VAT rate thành công' as message;
+END//
+
+-- 27. Kích hoạt/vô hiệu hóa VAT setting
+DROP PROCEDURE IF EXISTS ToggleVatSetting//
+CREATE PROCEDURE ToggleVatSetting(
+    IN p_package_type VARCHAR(10),
+    IN p_is_active TINYINT(1)
+)
+BEGIN
+    DECLARE v_error_msg VARCHAR(255);
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+        BEGIN
+            GET DIAGNOSTICS CONDITION 1
+                v_error_msg = MESSAGE_TEXT;
+            ROLLBACK;
+            RESIGNAL SET MESSAGE_TEXT = v_error_msg;
+        END;
+
+    START TRANSACTION;
+
+    -- Kiểm tra VAT setting có tồn tại không
+    IF NOT EXISTS(SELECT 1 FROM vat_settings WHERE package_type = p_package_type) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'VAT setting không tồn tại';
+    END IF;
+
+    -- Cập nhật trạng thái
+    UPDATE vat_settings 
+    SET is_active = p_is_active,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE package_type = p_package_type;
+
+    COMMIT;
+    SELECT p_package_type as package_type, p_is_active as is_active, 'Cập nhật trạng thái VAT thành công' as message;
+END//
+
 DELIMITER ;
-
--- =============================
--- EXAMPLES SỬ DỤNG STORED PROCEDURES CHO PRODUCTS-PACKAGES (1-N)
--- =============================
-
-/*
--- ===== QUẢN LÝ MỐI QUAN HỆ 1-N GIỮA PRODUCTS VÀ PACKAGES =====
-
--- 1. Tạo sản phẩm với nhiều packages cùng lúc (thể hiện mối quan hệ 1-N)
-CALL CreateProductWithPackages(
-    'Tài khoản Netflix Premium',                    -- product_name
-    'netflix-premium',                              -- product_slug
-    1,                                              -- category_id
-    'Tài khoản Netflix Premium chất lượng cao',    -- product_description
-    '/images/netflix.jpg',                          -- product_image_url
-    1,                                              -- product_status
-    '[
-        {
-            "name": "Netflix Premium 1 tháng",
-            "description": "Gói 1 tháng xem không giới hạn",
-            "price": 180000,
-            "old_price": 200000,
-            "stock_quantity": 100,
-            "package_type": "rental"
-        },
-        {
-            "name": "Netflix Premium 3 tháng",
-            "description": "Gói 3 tháng tiết kiệm hơn",
-            "price": 500000,
-            "old_price": 600000,
-            "stock_quantity": 50,
-            "package_type": "rental"
-        },
-        {
-            "name": "Netflix Premium 6 tháng",
-            "description": "Gói 6 tháng giá tốt nhất",
-            "price": 900000,
-            "old_price": 1200000,
-            "stock_quantity": 30,
-            "package_type": "rental"
-        }
-    ]'                                              -- packages_json (1 product -> N packages)
-);
-
--- 2. Lấy thông tin product với tất cả packages (thể hiện mối quan hệ 1-N)
-CALL GetProductWithPackages(1);
--- Kết quả: 
--- - 1 record thông tin product (mẹ)
--- - N records thông tin packages (con) thuộc product đó
-
--- 3. Cập nhật 1 package cụ thể (không ảnh hưởng packages khác)
-CALL UpdatePackage(
-    1,                              -- package_id
-    'Netflix Premium 1 tháng VIP',  -- name
-    'Gói 1 tháng với chất lượng 4K', -- description
-    190000,                         -- price
-    220000,                         -- old_price
-    80,                             -- stock_quantity
-    'rental',                       -- package_type
-    1                               -- status
-);
-
--- 4. Xóa 1 package (soft delete) - không ảnh hưởng product mẹ
-CALL DeletePackage(2, TRUE);  -- package_id=2, soft_delete=TRUE
-
--- 5. Thống kê chi tiết products-packages (thể hiện mối quan hệ tổng hợp)
-CALL GetProductPackageStats(1, NULL);  -- category_id=1, all package_types
--- Kết quả: Mỗi product (mẹ) với thống kê tổng hợp từ tất cả packages (con)
-
--- 6. Kiểm tra tính nhất quán dữ liệu giữa products và packages
-CALL ValidateProductPackageConsistency();
--- Phát hiện các trường hợp total_stock, total_sold của product không khớp với tổng từ packages
-
--- 7. Sửa lỗi tính nhất quán (đồng bộ dữ liệu từ con lên mẹ)
-CALL FixProductPackageConsistency();
-
--- ===== QUẢN LÝ ĐÁNH GIÁ CHO PACKAGES =====
-
--- 8. Tạo đánh giá cho package cụ thể (không phải product tổng thể)
-CALL CreatePackageReview(
-    1,                              -- package_id (Netflix Premium 1 tháng)
-    101,                            -- user_id
-    5,                              -- rating (1-5 sao)
-    'Gói Netflix 1 tháng rất tốt, chất lượng 4K, không lag'  -- review_text
-);
-
--- 9. Lấy tất cả đánh giá của một package
-CALL GetPackageReviews(1, 10, 0);  -- package_id=1, limit=10, offset=0
-
--- 10. Thống kê đánh giá chi tiết của package
-CALL GetPackageReviewStats(1);     -- package_id=1
--- Kết quả: Số lượng đánh giá, điểm trung bình, phân bố theo từng sao (1-5)
-
--- 11. Tổng hợp đánh giá của tất cả packages trong product
-CALL GetProductReviewsSummary(1);  -- product_id=1
--- Kết quả: 2 bảng
--- - Bảng 1: Thống kê tổng hợp của product (từ tất cả packages)
--- - Bảng 2: Chi tiết đánh giá từng package riêng lẻ
-
--- 12. Cập nhật đánh giá package
-CALL UpdatePackageReview(
-    1,                              -- review_id
-    4,                              -- rating mới
-    'Cập nhật: Gói tốt nhưng đôi khi hơi chậm'  -- review_text mới
-);
-
--- 13. Xóa đánh giá package (chỉ user tạo mới được xóa)
-CALL DeletePackageReview(1, 101);  -- review_id=1, user_id=101
-
--- ===== EXAMPLES THÔNG THƯỜNG =====
-
--- 1. Tạo sản phẩm mới (chỉ tạo product, chưa có packages)
-CALL CreateProduct(
-    'Tài khoản Spotify Premium',          -- name
-    NULL,                                 -- slug (tự động tạo)
-    1,                                    -- category_id
-    'Tài khoản Netflix Premium chất lượng cao', -- description
-    '/images/netflix.jpg',                -- image_url
-    1                                     -- status
-);
-
--- 2. Lấy thông tin sản phẩm theo ID
-CALL GetProductById(1);
-
--- 3. Lấy danh sách sản phẩm với bộ lọc
-CALL GetProducts(
-    1,                    -- category_id
-    1,                    -- status
-    'Netflix',            -- search_keyword
-    10.00,               -- min_price
-    50.00,               -- max_price
-    'price_asc',         -- sort_by
-    10,                  -- limit
-    0                    -- offset
-);
-
--- 4. Cập nhật sản phẩm
-CALL UpdateProduct(
-    1,                                    -- id
-    'Tài khoản Netflix Premium Updated',  -- name
-    'netflix-premium-updated',            -- slug
-    1,                                    -- category_id
-    'Mô tả đã được cập nhật',            -- description
-    '/images/netflix-new.jpg',            -- image_url
-    1                                     -- status
-);
-
--- 5. Xóa mềm sản phẩm
-CALL SoftDeleteProduct(
-    1,                                    -- id
-    2,                                    -- admin_id
-    'Sản phẩm không còn kinh doanh'      -- reason
-);
-
--- 6. Lấy sản phẩm theo category (bao gồm category con)
-CALL GetProductsByCategory(
-    1,      -- category_id
-    TRUE,   -- include_subcategories
-    20,     -- limit
-    0       -- offset
-);
-
--- 7. Đếm số lượng sản phẩm
-CALL CountProducts(
-    1,          -- category_id
-    1,          -- status
-    'Netflix',  -- search_keyword
-    NULL,       -- min_price
-    NULL        -- max_price
-);
-*/
 

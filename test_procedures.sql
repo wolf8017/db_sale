@@ -99,6 +99,33 @@ CALL SoftDeleteUser(
 );
 
 -- =============================
+-- TEST ADMIN VALIDATION FUNCTIONS
+-- =============================
+
+-- 1. Kiểm tra user có phải admin không (enhanced với full validation)
+SELECT IsUserAdmin(101) as is_admin_101;       -- 1 nếu admin101 là admin active không bị lock
+SELECT IsUserAdmin(203) as is_admin_203;       -- 0 nếu user203 là customer
+
+-- 2. Kiểm tra quyền cụ thể
+SELECT HasUserPermission(101, 'manage_products') as can_manage_products_101;    -- 1 nếu admin có quyền
+SELECT HasUserPermission(102, 'manage_products') as can_manage_products_102;    -- 0/1 tùy staff permissions
+
+-- 3. Session validation (comprehensive check for API)
+SELECT ValidateUserSession(101, TRUE, 'manage_products') as session_check_admin;
+-- Returns: {"valid": true, "error": null, "user_info": {...}, "timestamp": "..."}
+
+SELECT ValidateUserSession(203, TRUE, 'manage_products') as session_check_customer;
+-- Returns: {"valid": false, "error": "Access denied: Admin privileges required", ...}
+
+-- 4. Quick auth check (for performance-critical operations)  
+SELECT QuickAuthCheck(101, 'admin') as quick_admin_101;     -- 1 nếu là admin
+SELECT QuickAuthCheck(203, 'any') as quick_any_203;         -- 1 nếu là user hợp lệ
+
+-- 5. Lấy thông tin user cho logging
+SELECT GetUserInfo(101) as admin_info_101;     -- JSON với thông tin đầy đủ
+SELECT GetUserInfo(203) as customer_info_203;
+
+-- =============================
 -- TEST PRODUCT CATEGORY PROCEDURES
 -- =============================
 
@@ -234,7 +261,42 @@ CALL CreateProductWithPackages(
 -- CALL GetProductWithPackages(product_id)
 CALL GetProductWithPackages(1);
 
--- 21. Cập nhật 1 package cụ thể
+-- 21. Tạo package đơn lẻ cho product đã có sẵn
+-- CALL CreatePackage(product_id, name, description, price, old_price, duration_days, stock_quantity, package_type, details, note, max_cart_quantity, status, admin_id)
+CALL CreatePackage(
+    1,                              -- product_id (đã có sẵn)
+    'Netflix Premium 12 tháng',     -- name
+    'Gói 12 tháng siêu tiết kiệm',  -- description
+    1500000,                        -- price
+    2000000,                        -- old_price
+    365,                            -- duration_days
+    20,                             -- stock_quantity
+    'rental',                       -- package_type
+    'Gói 12 tháng Netflix Premium với đầy đủ tính năng 4K HDR', -- details
+    'Chỉ áp dụng cho tài khoản mới', -- note
+    1,                              -- max_cart_quantity
+    1,                              -- status
+    101                             -- admin_id (sẽ check quyền + auto log)
+);
+
+-- 22. Tạo package không có admin_id (backward compatible)
+CALL CreatePackage(
+    1,                              -- product_id
+    'Netflix Premium 1 tuần',       -- name
+    'Gói dùng thử 1 tuần',         -- description
+    50000,                          -- price
+    NULL,                           -- old_price
+    7,                              -- duration_days
+    100,                            -- stock_quantity
+    'rental',                       -- package_type
+    'Gói dùng thử ngắn hạn',       -- details
+    NULL,                           -- note
+    0,                              -- max_cart_quantity
+    1,                              -- status
+    NULL                            -- admin_id (NULL = không check admin, không log)
+);
+
+-- 23. Cập nhật 1 package cụ thể
 -- CALL UpdatePackage(package_id, name, description, price, old_price, stock_quantity, package_type, status)
 CALL UpdatePackage(
     1,                              -- package_id
@@ -247,28 +309,28 @@ CALL UpdatePackage(
     1                               -- status
 );
 
--- 22. Xóa package (soft delete)
+-- 24. Xóa package (soft delete)
 -- CALL DeletePackage(package_id, soft_delete)
 CALL DeletePackage(2, TRUE);        -- package_id=2, soft_delete=TRUE
 
--- 23. Xóa package (hard delete)
+-- 25. Xóa package (hard delete)
 CALL DeletePackage(3, FALSE);       -- package_id=3, soft_delete=FALSE
 
--- 24. Thống kê chi tiết products-packages
+-- 26. Thống kê chi tiết products-packages
 -- CALL GetProductPackageStats(category_id, package_type)
 CALL GetProductPackageStats(1, NULL);  -- category_id=1, all package_types
 CALL GetProductPackageStats(NULL, 'rental');  -- all categories, rental type only
 CALL GetProductPackageStats(NULL, NULL);      -- all categories, all types
 
--- 25. Kiểm tra tính nhất quán dữ liệu
+-- 27. Kiểm tra tính nhất quán dữ liệu
 -- CALL ValidateProductPackageConsistency()
 CALL ValidateProductPackageConsistency();
 
--- 26. Sửa lỗi tính nhất quán dữ liệu
+-- 28. Sửa lỗi tính nhất quán dữ liệu
 -- CALL FixProductPackageConsistency()
 CALL FixProductPackageConsistency();
 
--- 27. Tạo sản phẩm đơn giản
+-- 29. Tạo sản phẩm đơn giản
 -- CALL CreateProduct(name, slug, category_id, description, image_url, status)
 CALL CreateProduct(
     'Steam Wallet $50',             -- name
@@ -279,11 +341,11 @@ CALL CreateProduct(
     1                               -- status
 );
 
--- 28. Lấy thông tin product theo ID
+-- 30. Lấy thông tin product theo ID
 -- CALL GetProductById(product_id)
 CALL GetProductById(1);
 
--- 29. Lấy danh sách products
+-- 31. Lấy danh sách products
 -- CALL GetProducts(category_id, status, sort_by, sort_direction, limit_count, offset_count)
 CALL GetProducts(
     NULL,       -- category_id (tất cả)
@@ -294,7 +356,7 @@ CALL GetProducts(
     0           -- offset
 );
 
--- 30. Cập nhật product
+-- 32. Cập nhật product
 -- CALL UpdateProduct(product_id, name, slug, category_id, description, image_url, status)
 CALL UpdateProduct(
     1,                              -- product_id
@@ -306,21 +368,209 @@ CALL UpdateProduct(
     1                               -- status
 );
 
--- 31. Soft delete product
+-- 33. Soft delete product (với admin validation & logging)
 -- CALL SoftDeleteProduct(product_id, admin_id, reason)
 CALL SoftDeleteProduct(
     1,                              -- product_id
-    2,                              -- admin_id
+    101,                            -- admin_id (sẽ check quyền + auto log)
     'Sản phẩm tạm thời ngừng bán'   -- reason
 );
 
--- 32. Hard delete product
+-- 34. Hard delete product
 -- CALL HardDeleteProduct(product_id, admin_id, reason)
 CALL HardDeleteProduct(
     5,                              -- product_id
-    2,                              -- admin_id
+    101,                            -- admin_id
     'Sản phẩm vi phạm chính sách, cần xóa vĩnh viễn'
 );
+
+-- =============================
+-- TEST PRODUCT LOGS SYSTEM
+-- =============================
+
+-- 33. Log sự kiện product thủ công
+-- CALL LogProductEvent(product_id, event_type, event_description, old_data, new_data, user_id, user_type, ip_address, user_agent, severity_level, tags, additional_data)
+CALL LogProductEvent(
+    1,                              -- product_id
+    'product_created',              -- event_type
+    'Tạo sản phẩm mới: Microsoft Office 365', -- event_description
+    NULL,                           -- old_data (không có vì là tạo mới)
+    '{"name": "Microsoft Office 365", "category_id": 1, "status": 1}', -- new_data
+    101,                            -- user_id (admin)
+    'admin',                        -- user_type
+    '192.168.1.100',               -- ip_address
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', -- user_agent
+    'medium',                       -- severity_level
+    '["product", "creation", "microsoft"]', -- tags
+    '{"source": "admin_panel", "session_id": "sess_123456"}' -- additional_data
+);
+
+-- 34. Log sự kiện package
+-- CALL LogPackageEvent(package_id, event_type, event_description, old_data, new_data, user_id, user_type, ip_address, user_agent, severity_level, tags, additional_data)
+CALL LogPackageEvent(
+    1,                              -- package_id
+    'price_changed',                -- event_type
+    'Thay đổi giá từ 1,200,000 VND xuống 1,000,000 VND', -- event_description
+    '{"price": 1200000, "old_price": null}', -- old_data
+    '{"price": 1000000, "old_price": 1200000}', -- new_data
+    101,                            -- user_id
+    'admin',                        -- user_type
+    '192.168.1.100',               -- ip_address
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    'high',                         -- severity_level (giá thì quan trọng)
+    '["package", "price", "discount"]',
+    '{"reason": "promotion_campaign", "campaign_id": "SALE2024"}'
+);
+
+-- 35. Log nhanh cho các thao tác đơn giản
+-- CALL QuickLogProductAction(product_id, action, description, user_id, user_type, severity)
+CALL QuickLogProductAction(
+    1,                              -- product_id
+    'product_viewed',               -- action
+    'Admin xem chi tiết sản phẩm từ dashboard', -- description
+    101,                            -- user_id
+    'admin',                        -- user_type
+    'low'                           -- severity
+);
+
+CALL QuickLogProductAction(
+    1,                              -- product_id
+    'favorite_added',               -- action
+    'Khách hàng thêm vào danh sách yêu thích', -- description
+    203,                            -- user_id
+    'customer',                     -- user_type
+    'low'                           -- severity
+);
+
+-- 36. Lấy logs theo Product
+-- CALL GetProductLogs(product_id, limit, offset, event_type, severity_level, start_date, end_date)
+CALL GetProductLogs(1, 20, 0, NULL, NULL, NULL, NULL);
+
+-- 37. Lấy logs theo Package
+-- CALL GetPackageLogs(package_id, limit, offset, event_type, severity_level, start_date, end_date)
+CALL GetPackageLogs(1, 20, 0, NULL, NULL, NULL, NULL);
+
+-- 38. Lấy logs có mức độ quan trọng cao
+CALL GetProductLogs(1, 10, 0, NULL, 'high', NULL, NULL);
+
+-- 39. Lấy logs về thay đổi giá
+CALL GetProductLogs(1, 10, 0, 'price_changed', NULL, NULL, NULL);
+
+-- 40. Thống kê logs
+-- CALL GetLogStatistics(product_id, package_id, start_date, end_date)
+CALL GetLogStatistics(1, NULL, '2024-01-01', '2024-12-31');
+CALL GetLogStatistics(NULL, 1, '2024-01-01', '2024-12-31');
+
+-- 41. Test admin validation với user không có quyền (sẽ báo lỗi)
+-- CALL SoftDeleteProduct(1, 203, 'Customer trying to delete');
+-- → Error: 'Người dùng không có quyền admin hoặc không tồn tại'
+
+-- 42. Test với admin không có quyền manage_products (sẽ báo lỗi nếu staff không có permission)
+-- CALL SoftDeleteProduct(1, 102, 'Staff without permission');
+-- → Error: 'Không có quyền quản lý sản phẩm'
+
+-- 43. Tạo product với admin validation
+-- CALL CreateProduct(name, slug, category_id, description, image_url, status, admin_id)
+CALL CreateProduct(
+    'Adobe Photoshop 2024',        -- name
+    'adobe-photoshop-2024',        -- slug
+    2,                              -- category_id
+    'Phần mềm chỉnh sửa ảnh chuyên nghiệp', -- description
+    'https://example.com/ps2024.jpg', -- image_url
+    1,                              -- status
+    101                             -- admin_id (required - sẽ check quyền + auto log)
+);
+
+-- 44. Tạo product không có admin_id (backward compatible - không check, không log)
+CALL CreateProduct(
+    'Free Product',                 -- name
+    'free-product',                 -- slug
+    1,                              -- category_id
+    'Sản phẩm miễn phí',           -- description
+    NULL,                           -- image_url
+    1,                              -- status
+    NULL                            -- admin_id (NULL = không check admin, không log)
+);
+
+-- =============================
+-- TEST LOGS ANALYTICS & MONITORING
+-- =============================
+
+-- 45. Truy vấn logs trực tiếp với các filter khác nhau
+
+-- Xem 10 logs gần nhất
+SELECT 
+    id, product_id, package_id, event_type, event_description,
+    user_type, severity_level, created_at
+FROM product_logs 
+ORDER BY created_at DESC 
+LIMIT 10;
+
+-- Đếm số lượng logs theo loại sự kiện
+SELECT 
+    event_type, 
+    COUNT(*) as count,
+    COUNT(DISTINCT product_id) as unique_products,
+    COUNT(DISTINCT package_id) as unique_packages
+FROM product_logs 
+GROUP BY event_type 
+ORDER BY count DESC;
+
+-- Xem logs có mức độ critical
+SELECT 
+    id, product_id, package_id, event_type, event_description,
+    user_id, created_at, old_data, new_data
+FROM product_logs 
+WHERE severity_level = 'critical'
+ORDER BY created_at DESC;
+
+-- Top 10 sản phẩm có nhiều hoạt động nhất
+SELECT 
+    p.name as product_name,
+    COUNT(pl.id) as total_activities,
+    COUNT(CASE WHEN pl.event_type LIKE '%delete%' THEN 1 END) as delete_actions,
+    COUNT(CASE WHEN pl.event_type LIKE '%update%' THEN 1 END) as update_actions,
+    COUNT(CASE WHEN pl.event_type LIKE '%create%' THEN 1 END) as create_actions,
+    MAX(pl.created_at) as last_activity
+FROM products p
+LEFT JOIN product_logs pl ON p.id = pl.product_id
+GROUP BY p.id, p.name
+ORDER BY total_activities DESC
+LIMIT 10;
+
+-- Admin nào thao tác nhiều nhất
+SELECT 
+    u.username,
+    COUNT(pl.id) as total_actions,
+    COUNT(DISTINCT pl.product_id) as unique_products_affected,
+    MIN(pl.created_at) as first_action,
+    MAX(pl.created_at) as last_action
+FROM users u
+JOIN product_logs pl ON u.id = pl.user_id
+WHERE pl.user_type = 'admin'
+GROUP BY u.id, u.username
+ORDER BY total_actions DESC;
+
+-- Hoạt động theo giờ trong ngày (để phát hiện pattern)
+SELECT 
+    HOUR(created_at) as hour_of_day,
+    COUNT(*) as activity_count,
+    COUNT(CASE WHEN severity_level = 'high' THEN 1 END) as high_severity_count
+FROM product_logs
+WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+GROUP BY HOUR(created_at)
+ORDER BY hour_of_day;
+
+-- =============================
+-- TEST LOGS CLEANUP PROCEDURES
+-- =============================
+
+-- 46. Xem sẽ xóa bao nhiều logs cũ hơn 90 ngày (dry run)
+-- CALL CleanupOldLogs(days_to_keep, severity_to_keep, dry_run)
+CALL CleanupOldLogs(90, 'critical', TRUE);
+
+-- 47. Thực sự xóa logs cũ hơn 90 ngày, nhưng giữ lại logs critical
+-- CALL CleanupOldLogs(90, 'critical', FALSE);
 
 -- 33. Lấy sản phẩm theo category (không bao gồm subcategories)
 -- CALL GetProductsByCategory(category_id, include_subcategories, limit_count, offset_count)
@@ -449,6 +699,126 @@ SELECT @total_orders as total_orders, @total_amount as total_amount, @avg_order_
 CALL ProcessOrder(1, @result_code, @message);
 SELECT @result_code as result_code, @message as message;
 */
+
+-- =============================
+-- TEST CATEGORY LOGGING & ADMIN VALIDATION PROCEDURES
+-- =============================
+
+-- 48. Test Category Admin Validation Functions
+SELECT 'Testing Category Admin Functions' as test_section;
+
+-- Test IsUserAdmin function
+SELECT IsUserAdmin(1) as is_admin_user_1, IsUserAdmin(999) as is_admin_nonexistent;
+
+-- Test HasUserPermission function for categories
+SELECT HasUserPermission(1, 'manage_categories') as has_category_permission;
+
+-- 49. Test CreateProductCategory with admin validation
+SELECT 'Testing CreateProductCategory with Admin Validation' as test_name;
+
+-- Tạo danh mục với admin validation
+CALL CreateProductCategory(
+    'Electronics', 'electronics', NULL, 'Thiết bị điện tử', 
+    '/images/electronics.jpg', 'fa-laptop', 1, 1, 1,
+    'Electronics | Shop', 'Thiết bị điện tử chất lượng cao', 'electronics, technology',
+    1, 1
+);
+
+-- Tạo danh mục con
+CALL CreateProductCategory(
+    'Smartphones', 'smartphones', 1, 'Điện thoại thông minh', 
+    '/images/phones.jpg', 'fa-mobile', 1, 1, 0,
+    'Smartphones | Electronics', 'Điện thoại di động thông minh', 'phone, mobile, smartphone',
+    1, 1
+);
+
+-- 50. Test UpdateProductCategory with admin validation
+SELECT 'Testing UpdateProductCategory with Admin Validation' as test_name;
+
+-- Cập nhật danh mục với admin validation
+CALL UpdateProductCategory(
+    1, 'Consumer Electronics', 'consumer-electronics', NULL, 
+    'Thiết bị điện tử tiêu dùng cao cấp', '/images/consumer-electronics.jpg', 
+    'fa-tv', 2, 1, 1, 'Consumer Electronics | Shop', 
+    'Thiết bị điện tử tiêu dùng chất lượng', 'electronics, consumer, technology',
+    1, 1
+);
+
+-- 51. Test Category Logging System
+SELECT 'Testing Category Logging System' as test_name;
+
+-- Test LogCategoryEvent procedure
+CALL LogCategoryEvent(
+    1, 'category_featured_changed',
+    'Admin user thay đổi trạng thái featured của danh mục Electronics',
+    JSON_OBJECT('is_featured', 0),
+    JSON_OBJECT('is_featured', 1),
+    1, 'admin', NULL, NULL, 'medium',
+    '["category", "featured", "admin_action"]',
+    JSON_OBJECT('action', 'toggle_featured', 'previous_value', 0, 'new_value', 1)
+);
+
+-- 52. Test GetCategoryLogs
+SELECT 'Testing GetCategoryLogs' as test_name;
+
+-- Lấy logs theo category
+CALL GetCategoryLogs(1, 10, 0, NULL, NULL, NULL, NULL);
+
+-- Lấy logs theo event type cụ thể
+CALL GetCategoryLogs(1, 5, 0, 'category_created', NULL, NULL, NULL);
+
+-- 53. Test SoftDeleteProductCategory with admin validation and logging
+SELECT 'Testing SoftDeleteProductCategory with Admin Validation' as test_name;
+
+-- Xóa mềm danh mục con trước (không có products)
+CALL SoftDeleteProductCategory(2, 1, 'Danh mục không còn phù hợp với strategy mới');
+
+-- 54. Test Enhanced Category Analytics
+SELECT 'Testing Category Analytics from Logs' as test_name;
+
+-- Thống kê category events
+SELECT 
+    pc.name as category_name,
+    pl.event_type,
+    COUNT(*) as event_count,
+    MIN(pl.created_at) as first_event,
+    MAX(pl.created_at) as last_event
+FROM product_categories pc
+LEFT JOIN product_logs pl ON pc.id = pl.category_id
+WHERE pl.category_id IS NOT NULL
+GROUP BY pc.id, pc.name, pl.event_type
+ORDER BY event_count DESC;
+
+-- Admin activity trên categories
+SELECT 
+    u.username,
+    COUNT(pl.id) as category_actions,
+    COUNT(DISTINCT pl.category_id) as unique_categories_affected,
+    GROUP_CONCAT(DISTINCT pl.event_type) as action_types
+FROM users u
+JOIN product_logs pl ON u.id = pl.user_id
+WHERE pl.category_id IS NOT NULL AND pl.user_type = 'admin'
+GROUP BY u.id, u.username
+ORDER BY category_actions DESC;
+
+-- Category logs severity distribution
+SELECT 
+    severity_level,
+    COUNT(*) as log_count,
+    COUNT(DISTINCT category_id) as categories_affected
+FROM product_logs 
+WHERE category_id IS NOT NULL
+GROUP BY severity_level
+ORDER BY log_count DESC;
+
+-- 55. Test Category Tree after operations
+SELECT 'Testing Category Tree After Operations' as test_name;
+
+-- Xem cây danh mục sau các thao tác
+CALL GetCategoryTree(NULL, 1);
+
+-- Lấy danh mục còn active
+CALL GetProductCategories(NULL, 1, NULL, NULL);
 
 -- =============================
 -- GHI CHÚ QUAN TRỌNG

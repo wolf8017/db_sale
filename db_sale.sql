@@ -1462,8 +1462,8 @@ CREATE TABLE account_rentals
     id            INT PRIMARY KEY AUTO_INCREMENT,
     account_id    INT      NOT NULL, -- Tài khoản thực tế
     order_item_id INT      NOT NULL, -- Liên kết với order_items
-    rental_start  DATETIME NOT NULL, -- Thời gian bắt đầu thuê
-    rental_end    DATETIME NOT NULL, -- Thời gian kết thúc thuê (hết hạn thuê)
+    rental_start  DATETIME NULL, -- Thời gian bắt đầu thuê (NULL cho hàng sử dụng 1 lần)
+    rental_end    DATETIME NULL, -- Thời gian kết thúc thuê (NULL cho hàng sử dụng 1 lần)
     status        ENUM ('active', 'expired', 'returned') DEFAULT 'active',
     created_at    TIMESTAMP                              DEFAULT CURRENT_TIMESTAMP,
     updated_at    TIMESTAMP                              DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -2166,14 +2166,6 @@ BEGIN
 END //
 DELIMITER ;
 
-/*
-CALL GoogleLogin('google_user_id_123', 'user@gmail.com', 'John Doe');
-
-CALL RegisterUser('john_doe', 'john@example.com', 'hashed_password', 'John Doe');
-
-CALL LoginUser('john_doe', 'hashed_password');
-*/
-
 -- =============================
 -- PROCEDURE ĐỔI MẬT KHẨU NGƯỜI DÙNG (KHÔNG CẦN MẬT KHẨU CŨ)
 -- =============================
@@ -2255,17 +2247,6 @@ BEGIN
 END //
 DELIMITER ;
 
-/*-- Ví dụ gọi procedure đổi mật khẩu
-
-CALL ChangeUserPassword(1, 'new_password123', 'new_password123');
--- Kết quả trả về:
--- result_code: 1 (thành công)
--- message: 'Password changed successfully'
-
-CALL ChangeUserPassword(1, 'short', 'short');
-
- */
-
 -- =============================
 -- PROCEDURE CẬP NHẬT THÔNG TIN NGƯỜI DÙNG (CHỈ UPDATE TRƯỜNG KHÁC NULL)
 -- =============================
@@ -2343,20 +2324,6 @@ BEGIN
     SELECT v_result_code AS result_code, v_message AS message;
 END //
 DELIMITER ;
-
-/* Ví dụ gọi procedure cập nhật thông tin người dùng
-CALL UpdateUserProfile(
-    1,
-    'Nguyễn Văn B', -- full_name (update)
-    NULL,           -- phone (giữ nguyên)
-    NULL,           -- gender (giữ nguyên)
-    'Hà Nội',       -- city (update)
-    NULL,           -- district (giữ nguyên)
-    NULL,           -- ward (giữ nguyên)
-    NULL,           -- address (giữ nguyên)
-    NULL            -- avatar (giữ nguyên)
-);
- */
 
 -- =============================
 -- PROCEDURE RESET LOGIN ATTEMPTS (RESET_LOGIN_ATTEMPTS)
@@ -2566,63 +2533,6 @@ BEGIN
 END //
 DELIMITER ;
 
-/*
--- Mở khóa tài khoản cho customer03 (bị khóa do đăng nhập sai nhiều lần)
--- Tham số: user_id, admin_id, reason
-CALL ResetLoginAttempts(
-    9,                                           -- user_id (customer03)
-    2,                                           -- admin_id (admin01)
-    'Mở khóa theo yêu cầu qua email xác thực'    -- reason
-);
-
--- Mở khóa tài khoản cho customer05 (bị khóa do đăng nhập sai quá 5 lần)
-CALL ResetLoginAttempts(
-    5,                                           -- user_id (customer05)
-    7,                                           -- admin_id (admin02)
-    'Xác minh danh tính qua CMND'                -- reason
-);
-
--- Khóa tài khoản (ban) customer04 do vi phạm điều khoản
--- Tham số: user_id, status mới, admin_id, reason
-CALL ChangeUserStatus(
-    8,                                           -- user_id (customer04)
-    'banned',                                    -- status mới (active/inactive/banned)
-    2,                                           -- admin_id (admin01)
-    'Vi phạm điều khoản sử dụng mục 3.2'         -- reason
-);
-
--- Mở khóa tài khoản (unban) staff02 sau khi xác minh
-CALL ChangeUserStatus(
-    6,                                           -- user_id (staff02)
-    'active',                                    -- status mới (active/inactive/banned)
-    7,                                           -- admin_id (admin02)
-    'Đã xác minh không vi phạm, phục hồi tài khoản' -- reason
-);
-
--- Tạm khóa tài khoản (suspend) customer02 do nghi ngờ gian lận
-CALL ChangeUserStatus(
-    4,                                           -- user_id (customer02)
-    'inactive',                                  -- status mới (active/inactive/banned)
-    3,                                           -- admin_id (staff01)
-    'Tạm khóa để điều tra giao dịch đáng ngờ'    -- reason
-);
-
--- Xóa mềm tài khoản customer04 theo yêu cầu của người dùng
--- Tham số: user_id, admin_id, reason
-CALL SoftDeleteUser(
-    8,                                           -- user_id (customer04)
-    2,                                           -- admin_id (admin01)
-    'Người dùng yêu cầu xóa tài khoản'           -- reason
-);
-
--- Xóa mềm tài khoản staff02 do không còn làm việc
-CALL SoftDeleteUser(
-    6,                                           -- user_id (staff02)
-    7,                                           -- admin_id (admin02)
-    'Nhân viên đã nghỉ việc'                     -- reason
-);
-*/
-
 -- =============================
 -- STORED PROCEDURES CRUD CHO PRODUCT_CATEGORIES
 -- =============================
@@ -2643,10 +2553,15 @@ CREATE PROCEDURE CreateProductCategory(
     IN p_meta_title VARCHAR(255),
     IN p_meta_description VARCHAR(500),
     IN p_meta_keywords VARCHAR(500),
-    IN p_status TINYINT(1)
+    IN p_status TINYINT(1),
+    IN p_admin_id INT
 )
 BEGIN
     DECLARE v_error_msg VARCHAR(255);
+    DECLARE v_category_id INT;
+    DECLARE v_admin_info JSON;
+    DECLARE v_new_data JSON;
+    
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
         BEGIN
             GET DIAGNOSTICS CONDITION 1
@@ -2657,7 +2572,20 @@ BEGIN
 
     START TRANSACTION;
 
-    -- Kiểm tra slug đã tồn tại chưa
+    -- 1. KIỂM TRA ADMIN QUYỀN
+    IF p_admin_id IS NOT NULL THEN
+        IF NOT IsUserAdmin(p_admin_id) THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Người dùng không có quyền admin hoặc không tồn tại';
+        END IF;
+
+        IF NOT HasUserPermission(p_admin_id, 'manage_categories') THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Không có quyền quản lý danh mục';
+        END IF;
+
+        SET v_admin_info = GetUserInfo(p_admin_id);
+    END IF;
+
+    -- 2. Kiểm tra slug đã tồn tại chưa
     IF EXISTS(SELECT 1 FROM product_categories WHERE slug = p_slug) THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Slug đã tồn tại trong hệ thống';
     END IF;
@@ -2673,8 +2601,41 @@ BEGIN
     VALUES (p_name, p_slug, p_parent_id, p_description, p_image_url, p_icon,
             IFNULL(p_display_order, 0), IFNULL(p_is_featured, 0), IFNULL(p_show_on_homepage, 0),
             p_meta_title, p_meta_description, p_meta_keywords, IFNULL(p_status, 1));
+    
+    SET v_category_id = LAST_INSERT_ID();
+
+    -- 3. LOG SỰ KIỆN TẠO CATEGORY (chỉ khi có admin_id)
+    IF p_admin_id IS NOT NULL THEN
+        SET v_new_data = JSON_OBJECT(
+            'id', v_category_id,
+            'name', p_name,
+            'slug', p_slug,
+            'parent_id', p_parent_id,
+            'description', p_description,
+            'image_url', p_image_url,
+            'icon', p_icon,
+            'display_order', IFNULL(p_display_order, 0),
+            'is_featured', IFNULL(p_is_featured, 0),
+            'show_on_homepage', IFNULL(p_show_on_homepage, 0),
+            'status', IFNULL(p_status, 1)
+        );
+
+        CALL LogCategoryEvent(
+            v_category_id,
+            'category_created',
+            CONCAT('Admin ', JSON_UNQUOTE(JSON_EXTRACT(v_admin_info, '$.username')), ' tạo danh mục mới: "', p_name, '"'),
+            NULL,
+            v_new_data,
+            p_admin_id,
+            JSON_UNQUOTE(JSON_EXTRACT(v_admin_info, '$.role')),
+            NULL, NULL, 'medium',
+            '["category", "create", "admin_action"]',
+            JSON_OBJECT('action', 'create_category', 'admin_info', v_admin_info, 'validation_passed', true)
+        );
+    END IF;
+
     COMMIT;
-    SELECT LAST_INSERT_ID() as category_id, 'Tạo danh mục thành công' as message;
+    SELECT v_category_id as category_id, 'Tạo danh mục thành công' as message;
 END//
 
 -- READ - Lấy thông tin danh mục theo ID
@@ -2824,11 +2785,16 @@ CREATE PROCEDURE UpdateProductCategory(
     IN p_meta_title VARCHAR(255),
     IN p_meta_description VARCHAR(500),
     IN p_meta_keywords VARCHAR(500),
-    IN p_status TINYINT(1)
+    IN p_status TINYINT(1),
+    IN p_admin_id INT
 )
 BEGIN
     DECLARE v_error_msg VARCHAR(255);
     DECLARE v_current_slug VARCHAR(150);
+    DECLARE v_admin_info JSON;
+    DECLARE v_old_data JSON;
+    DECLARE v_new_data JSON;
+    
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
         BEGIN
             GET DIAGNOSTICS CONDITION 1
@@ -2839,15 +2805,40 @@ BEGIN
 
     START TRANSACTION;
 
-    -- Kiểm tra danh mục có tồn tại không
+    -- 1. KIỂM TRA ADMIN QUYỀN
+    IF p_admin_id IS NOT NULL THEN
+        IF NOT IsUserAdmin(p_admin_id) THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Người dùng không có quyền admin hoặc không tồn tại';
+        END IF;
+
+        IF NOT HasUserPermission(p_admin_id, 'manage_categories') THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Không có quyền quản lý danh mục';
+        END IF;
+
+        SET v_admin_info = GetUserInfo(p_admin_id);
+    END IF;
+
+    -- 2. Kiểm tra danh mục có tồn tại không
     IF NOT EXISTS(SELECT 1 FROM product_categories WHERE id = p_id) THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Danh mục không tồn tại';
     END IF;
 
-    -- Lấy slug hiện tại
-    SELECT slug INTO v_current_slug FROM product_categories WHERE id = p_id;
+    -- 3. Lấy dữ liệu cũ để logging (nếu có admin_id)
+    IF p_admin_id IS NOT NULL THEN
+        SELECT JSON_OBJECT(
+            'name', name, 'slug', slug, 'parent_id', parent_id, 'description', description,
+            'image_url', image_url, 'icon', icon, 'display_order', display_order,
+            'is_featured', is_featured, 'show_on_homepage', show_on_homepage,
+            'meta_title', meta_title, 'meta_description', meta_description, 
+            'meta_keywords', meta_keywords, 'status', status
+        ), slug 
+        INTO v_old_data, v_current_slug
+        FROM product_categories WHERE id = p_id;
+    ELSE
+        SELECT slug INTO v_current_slug FROM product_categories WHERE id = p_id;
+    END IF;
 
-    -- Kiểm tra slug mới có trùng với danh mục khác không
+    -- 4. Kiểm tra slug mới có trùng với danh mục khác không
     IF p_slug != v_current_slug AND EXISTS(SELECT 1 FROM product_categories WHERE slug = p_slug AND id != p_id) THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Slug đã tồn tại trong hệ thống';
     END IF;
@@ -2878,6 +2869,36 @@ BEGIN
         status           = IFNULL(p_status, status),
         updated_at       = CURRENT_TIMESTAMP
     WHERE id = p_id;
+
+    -- 6. LOG SỰ KIỆN CẬP NHẬT CATEGORY (chỉ khi có admin_id)
+    IF p_admin_id IS NOT NULL THEN
+        SET v_new_data = JSON_OBJECT(
+            'name', IFNULL(p_name, JSON_UNQUOTE(JSON_EXTRACT(v_old_data, '$.name'))),
+            'slug', IFNULL(p_slug, JSON_UNQUOTE(JSON_EXTRACT(v_old_data, '$.slug'))),
+            'parent_id', p_parent_id,
+            'description', p_description,
+            'image_url', p_image_url,
+            'icon', p_icon,
+            'display_order', IFNULL(p_display_order, JSON_EXTRACT(v_old_data, '$.display_order')),
+            'is_featured', IFNULL(p_is_featured, JSON_EXTRACT(v_old_data, '$.is_featured')),
+            'show_on_homepage', IFNULL(p_show_on_homepage, JSON_EXTRACT(v_old_data, '$.show_on_homepage')),
+            'status', IFNULL(p_status, JSON_EXTRACT(v_old_data, '$.status'))
+        );
+
+        CALL LogCategoryEvent(
+            p_id,
+            'category_updated',
+            CONCAT('Admin ', JSON_UNQUOTE(JSON_EXTRACT(v_admin_info, '$.username')), ' cập nhật danh mục: "', IFNULL(p_name, JSON_UNQUOTE(JSON_EXTRACT(v_old_data, '$.name'))), '"'),
+            v_old_data,
+            v_new_data,
+            p_admin_id,
+            JSON_UNQUOTE(JSON_EXTRACT(v_admin_info, '$.role')),
+            NULL, NULL, 'medium',
+            '["category", "update", "admin_action"]',
+            JSON_OBJECT('action', 'update_category', 'admin_info', v_admin_info, 'validation_passed', true)
+        );
+    END IF;
+
     COMMIT;
     SELECT p_id as category_id, 'Cập nhật danh mục thành công' as message;
 END//
@@ -2893,6 +2914,9 @@ BEGIN
     DECLARE v_error_msg VARCHAR(255);
     DECLARE v_subcategory_count INT DEFAULT 0;
     DECLARE v_product_count INT DEFAULT 0;
+    DECLARE v_admin_info JSON;
+    DECLARE v_old_data JSON;
+    
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
         BEGIN
             GET DIAGNOSTICS CONDITION 1
@@ -2903,8 +2927,29 @@ BEGIN
 
     START TRANSACTION;
 
-    -- Kiểm tra danh mục có tồn tại không
-    IF NOT EXISTS(SELECT 1 FROM product_categories WHERE id = p_id) THEN
+    -- 1. KIỂM TRA ADMIN QUYỀN
+    IF NOT IsUserAdmin(p_admin_id) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Người dùng không có quyền admin hoặc không tồn tại';
+    END IF;
+
+    IF NOT HasUserPermission(p_admin_id, 'manage_categories') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Không có quyền quản lý danh mục';
+    END IF;
+
+    SET v_admin_info = GetUserInfo(p_admin_id);
+
+    -- 2. Kiểm tra danh mục có tồn tại không và lấy dữ liệu cũ
+    SELECT JSON_OBJECT(
+        'name', name, 'slug', slug, 'parent_id', parent_id, 'description', description,
+        'image_url', image_url, 'icon', icon, 'display_order', display_order,
+        'is_featured', is_featured, 'show_on_homepage', show_on_homepage,
+        'status', status
+    )
+    INTO v_old_data
+    FROM product_categories 
+    WHERE id = p_id;
+    
+    IF v_old_data IS NULL THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Danh mục không tồn tại';
     END IF;
 
@@ -2936,9 +2981,20 @@ BEGIN
         updated_at = CURRENT_TIMESTAMP
     WHERE id = p_id;
 
-    -- Ghi log hoạt động (nếu có bảng logs)
-    -- INSERT INTO admin_activity_logs (admin_id, action, target_type, target_id, reason, created_at)
-    -- VALUES (p_admin_id, 'soft_delete', 'product_category', p_id, p_reason, CURRENT_TIMESTAMP);
+    -- 3. LOG SỰ KIỆN XÓA MỀM CATEGORY
+    CALL LogCategoryEvent(
+        p_id,
+        'category_deleted',
+        CONCAT('Admin ', JSON_UNQUOTE(JSON_EXTRACT(v_admin_info, '$.username')), ' xóa mềm danh mục: "', JSON_UNQUOTE(JSON_EXTRACT(v_old_data, '$.name')), '"', 
+               IF(p_reason IS NOT NULL, CONCAT(' - Lý do: ', p_reason), '')),
+        v_old_data,
+        JSON_OBJECT('status', 0, 'deleted_at', NOW()),
+        p_admin_id,
+        JSON_UNQUOTE(JSON_EXTRACT(v_admin_info, '$.role')),
+        NULL, NULL, 'high',
+        '["category", "delete", "soft_delete", "admin_action"]',
+        JSON_OBJECT('action', 'soft_delete_category', 'reason', p_reason, 'admin_info', v_admin_info, 'subcategory_count', v_subcategory_count, 'product_count', v_product_count)
+    );
 
     COMMIT;
     SELECT p_id as category_id, 'Xóa danh mục thành công' as message;
@@ -2955,6 +3011,9 @@ BEGIN
     DECLARE v_error_msg VARCHAR(255);
     DECLARE v_subcategory_count INT DEFAULT 0;
     DECLARE v_product_count INT DEFAULT 0;
+    DECLARE v_admin_info JSON;
+    DECLARE v_old_data JSON;
+    
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
         BEGIN
             GET DIAGNOSTICS CONDITION 1
@@ -2965,8 +3024,29 @@ BEGIN
 
     START TRANSACTION;
 
-    -- Kiểm tra danh mục có tồn tại không
-    IF NOT EXISTS(SELECT 1 FROM product_categories WHERE id = p_id) THEN
+    -- 1. KIỂM TRA ADMIN QUYỀN (Hard delete yêu cầu admin level cao hơn)
+    IF NOT IsUserAdmin(p_admin_id) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Người dùng không có quyền admin hoặc không tồn tại';
+    END IF;
+
+    IF NOT HasUserPermission(p_admin_id, 'manage_categories') OR NOT HasUserPermission(p_admin_id, 'hard_delete') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Không có quyền xóa cứng danh mục';
+    END IF;
+
+    SET v_admin_info = GetUserInfo(p_admin_id);
+
+    -- 2. Kiểm tra danh mục có tồn tại không và lấy dữ liệu cũ
+    SELECT JSON_OBJECT(
+        'name', name, 'slug', slug, 'parent_id', parent_id, 'description', description,
+        'image_url', image_url, 'icon', icon, 'display_order', display_order,
+        'is_featured', is_featured, 'show_on_homepage', show_on_homepage,
+        'status', status
+    )
+    INTO v_old_data
+    FROM product_categories 
+    WHERE id = p_id;
+    
+    IF v_old_data IS NULL THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Danh mục không tồn tại';
     END IF;
 
@@ -2990,12 +3070,23 @@ BEGIN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Không thể xóa danh mục có sản phẩm';
     END IF;
 
-    -- Xóa cứng danh mục
-    DELETE FROM product_categories WHERE id = p_id;
+    -- 3. LOG SỰ KIỆN XÓA CỨNG CATEGORY (trước khi xóa)
+    CALL LogCategoryEvent(
+        p_id,
+        'category_deleted',
+        CONCAT('Admin ', JSON_UNQUOTE(JSON_EXTRACT(v_admin_info, '$.username')), ' xóa cứng danh mục: "', JSON_UNQUOTE(JSON_EXTRACT(v_old_data, '$.name')), '"', 
+               IF(p_reason IS NOT NULL, CONCAT(' - Lý do: ', p_reason), '')),
+        v_old_data,
+        JSON_OBJECT('permanently_deleted', true, 'deleted_at', NOW()),
+        p_admin_id,
+        JSON_UNQUOTE(JSON_EXTRACT(v_admin_info, '$.role')),
+        NULL, NULL, 'critical',
+        '["category", "delete", "hard_delete", "admin_action", "critical"]',
+        JSON_OBJECT('action', 'hard_delete_category', 'reason', p_reason, 'admin_info', v_admin_info, 'subcategory_count', v_subcategory_count, 'product_count', v_product_count, 'warning', 'PERMANENT_DELETION')
+    );
 
-    -- Ghi log hoạt động (nếu có bảng logs)
-    -- INSERT INTO admin_activity_logs (admin_id, action, target_type, target_id, reason, created_at)
-    -- VALUES (p_admin_id, 'hard_delete', 'product_category', p_id, p_reason, CURRENT_TIMESTAMP);
+    -- 4. Xóa cứng danh mục
+    DELETE FROM product_categories WHERE id = p_id;
 
     COMMIT;
     SELECT p_id as category_id, 'Xóa vĩnh viễn danh mục thành công' as message;
@@ -3113,83 +3204,6 @@ END//
 DELIMITER ;
 
 -- =============================
--- EXAMPLES - Ví dụ sử dụng các procedures
--- =============================
-
-/*
--- 1. Tạo danh mục mới
-CALL CreateProductCategory(
-    'Điện thoại di động',           -- name
-    'dien-thoai-di-dong',          -- slug
-    NULL,                          -- parent_id (danh mục gốc)
-    'Các sản phẩm điện thoại di động thông minh', -- description
-    '/images/categories/phone.jpg', -- image_url
-    'fas fa-mobile-alt',           -- icon
-    1,                             -- display_order
-    1,                             -- is_featured
-    1,                             -- show_on_homepage
-    'Điện thoại di động - Smartphone chính hãng', -- meta_title
-    'Mua điện thoại di động chính hãng với giá tốt nhất', -- meta_description
-    'điện thoại, smartphone, di động', -- meta_keywords
-    1                              -- status
-);
-
--- 2. Lấy thông tin danh mục theo ID
-CALL GetProductCategoryById(1);
-
--- 3. Lấy danh sách danh mục (không phân trang)
-CALL GetProductCategories(
-    NULL,  -- parent_id (NULL = tất cả)
-    1,     -- status (1 = active)
-    NULL,  -- is_featured (NULL = tất cả)
-    NULL   -- show_on_homepage (NULL = tất cả)
-);
-
--- 3b. Lấy danh sách danh mục (có phân trang)
-CALL GetProductCategoriesPaginated(
-    NULL,  -- parent_id (NULL = tất cả)
-    1,     -- status (1 = active)
-    NULL,  -- is_featured (NULL = tất cả)
-    NULL,  -- show_on_homepage (NULL = tất cả)
-    10,    -- limit
-    0      -- offset
-);
-
--- 4. Cập nhật danh mục
-CALL UpdateProductCategory(
-    1,                             -- id
-    'Điện thoại thông minh',       -- name mới
-    'dien-thoai-thong-minh',      -- slug mới
-    NULL,                          -- parent_id
-    'Các sản phẩm điện thoại thông minh cao cấp', -- description mới
-    '/images/categories/smartphone.jpg', -- image_url mới
-    'fas fa-mobile-alt',           -- icon
-    1,                             -- display_order
-    1,                             -- is_featured
-    1,                             -- show_on_homepage
-    'Điện thoại thông minh - Smartphone cao cấp', -- meta_title
-    'Mua điện thoại thông minh cao cấp với giá tốt', -- meta_description
-    'điện thoại thông minh, smartphone cao cấp', -- meta_keywords
-    1                              -- status
-);
-
--- 5. Xóa mềm danh mục
-CALL SoftDeleteProductCategory(
-    1,                             -- category_id
-    2,                             -- admin_id
-    'Danh mục không còn sử dụng'   -- reason
-);
-
--- 6. Lấy cây danh mục
-CALL GetCategoryTree(NULL, 3);
-
--- 7. Cập nhật thứ tự hiển thị
-CALL UpdateCategoryDisplayOrder(
-    '[{"id": 1, "display_order": 1}, {"id": 2, "display_order": 2}, {"id": 3, "display_order": 3}]'
-);
-*/
-
--- =============================
 -- STORED PROCEDURES CHO BẢNG PRODUCTS
 -- =============================
 
@@ -3278,17 +3292,17 @@ READS SQL DATA
 DETERMINISTIC
 BEGIN
     DECLARE v_vat_rate DECIMAL(4,3) DEFAULT 0.01;
-    
+
     SELECT vat_rate INTO v_vat_rate
-    FROM vat_settings 
+    FROM vat_settings
     WHERE package_type = p_package_type AND is_active = 1
     LIMIT 1;
-    
+
     -- Nếu không tìm thấy, trả về mặc định
     IF v_vat_rate IS NULL THEN
         SET v_vat_rate = IF(p_package_type = 'rental', 0.05, 0.01);
     END IF;
-    
+
     RETURN v_vat_rate;
 END//
 
@@ -3389,7 +3403,7 @@ BEGIN
     RETURN v_final_slug;
 END//
 
--- 4. CREATE - Tạo sản phẩm mới
+-- 4. CREATE - Tạo sản phẩm mới với admin validation
 DROP PROCEDURE IF EXISTS CreateProduct//
 CREATE PROCEDURE CreateProduct(
     IN p_name VARCHAR(255),
@@ -3397,11 +3411,16 @@ CREATE PROCEDURE CreateProduct(
     IN p_category_id INT,
     IN p_description TEXT,
     IN p_image_url VARCHAR(500),
-    IN p_status TINYINT(1)
+    IN p_status TINYINT(1),
+    IN p_admin_id INT
 )
 BEGIN
     DECLARE v_error_msg VARCHAR(255);
     DECLARE v_final_slug VARCHAR(255);
+    DECLARE v_product_id INT;
+    DECLARE v_admin_info JSON;
+    DECLARE v_new_data JSON;
+    
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
         BEGIN
             GET DIAGNOSTICS CONDITION 1
@@ -3411,6 +3430,21 @@ BEGIN
         END;
 
     START TRANSACTION;
+
+    -- 1. KIỂM TRA ADMIN QUYỀN (chỉ check khi có p_admin_id)
+    IF p_admin_id IS NOT NULL THEN
+        IF NOT IsUserAdmin(p_admin_id) THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Người dùng không có quyền admin hoặc không tồn tại';
+        END IF;
+
+        -- Kiểm tra quyền cụ thể
+        IF NOT HasUserPermission(p_admin_id, 'manage_products') THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Không có quyền quản lý sản phẩm';
+        END IF;
+
+        -- Lấy thông tin admin
+        SET v_admin_info = GetUserInfo(p_admin_id);
+    END IF;
 
     -- Kiểm tra category có tồn tại và active không
     IF NOT IsCategoryActive(p_category_id) THEN
@@ -3431,9 +3465,45 @@ BEGIN
     -- Thêm sản phẩm mới
     INSERT INTO products (name, slug, category_id, description, image_url, status, total_stock, total_sold)
     VALUES (p_name, v_final_slug, p_category_id, p_description, p_image_url, IFNULL(p_status, 1), 0, 0);
+    
+    SET v_product_id = LAST_INSERT_ID();
+
+    -- Log việc tạo mới (chỉ khi có admin_id)
+    IF p_admin_id IS NOT NULL THEN
+        SET v_new_data = JSON_OBJECT(
+            'id', v_product_id,
+            'name', p_name,
+            'slug', v_final_slug,
+            'category_id', p_category_id,
+            'description', p_description,
+            'image_url', p_image_url,
+            'status', IFNULL(p_status, 1)
+        );
+
+        CALL LogProductEvent(
+            v_product_id,                   -- product_id
+            'product_created',              -- event_type
+            CONCAT('Admin ', JSON_UNQUOTE(JSON_EXTRACT(v_admin_info, '$.username')), ' tạo sản phẩm mới: "', p_name, '"'), -- event_description
+            NULL,                           -- old_data
+            v_new_data,                     -- new_data
+            p_admin_id,                     -- user_id
+            JSON_UNQUOTE(JSON_EXTRACT(v_admin_info, '$.role')), -- user_type
+            NULL,                           -- ip_address
+            NULL,                           -- user_agent
+            'medium',                       -- severity_level
+            '["product", "create", "admin_action", "security"]', -- tags
+            JSON_OBJECT(
+                'action', 'create',
+                'category_id', p_category_id,
+                'auto_slug', IF(p_slug IS NULL OR p_slug = '', true, false),
+                'admin_info', v_admin_info,
+                'validation_passed', true
+            ) -- additional_data
+        );
+    END IF;
 
     COMMIT;
-    SELECT LAST_INSERT_ID() as product_id, v_final_slug as slug, 'Tạo sản phẩm thành công' as message;
+    SELECT v_product_id as product_id, v_final_slug as slug, 'Tạo sản phẩm thành công' as message;
 END//
 
 -- 5. READ - Lấy thông tin sản phẩm theo ID
@@ -3609,7 +3679,7 @@ BEGIN
     SELECT p_id as product_id, 'Cập nhật sản phẩm thành công' as message;
 END//
 
--- 8. DELETE - Xóa mềm sản phẩm (set status = 0)
+-- 8. DELETE - Xóa mềm sản phẩm (set status = 0) với admin validation
 DROP PROCEDURE IF EXISTS SoftDeleteProduct//
 CREATE PROCEDURE SoftDeleteProduct(
     IN p_id INT,
@@ -3619,6 +3689,10 @@ CREATE PROCEDURE SoftDeleteProduct(
 BEGIN
     DECLARE v_error_msg VARCHAR(255);
     DECLARE v_package_count INT DEFAULT 0;
+    DECLARE v_product_name VARCHAR(255);
+    DECLARE v_current_status TINYINT(1);
+    DECLARE v_admin_info JSON;
+    
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
         BEGIN
             GET DIAGNOSTICS CONDITION 1
@@ -3629,9 +3703,31 @@ BEGIN
 
     START TRANSACTION;
 
+    -- 1. KIỂM TRA ADMIN QUYỀN
+    IF NOT IsUserAdmin(p_admin_id) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Người dùng không có quyền admin hoặc không tồn tại';
+    END IF;
+
+    -- Kiểm tra quyền cụ thể cho việc xóa product
+    IF NOT HasUserPermission(p_admin_id, 'manage_products') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Không có quyền quản lý sản phẩm';
+    END IF;
+
+    -- Lấy thông tin admin và product
+    SET v_admin_info = GetUserInfo(p_admin_id);
+    
+    SELECT name, status INTO v_product_name, v_current_status
+    FROM products 
+    WHERE id = p_id;
+
     -- Kiểm tra sản phẩm có tồn tại không
-    IF NOT EXISTS(SELECT 1 FROM products WHERE id = p_id) THEN
+    IF v_product_name IS NULL THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Sản phẩm không tồn tại';
+    END IF;
+
+    -- Kiểm tra đã bị xóa mềm chưa
+    IF v_current_status = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Sản phẩm đã bị xóa mềm trước đó';
     END IF;
 
     -- Kiểm tra có packages active không
@@ -3649,12 +3745,30 @@ BEGIN
         updated_at = CURRENT_TIMESTAMP
     WHERE id = p_id;
 
-    -- Log việc xóa (nếu có bảng log)
-    -- INSERT INTO product_logs (product_id, admin_id, action, reason, created_at)
-    -- VALUES (p_id, p_admin_id, 'soft_delete', p_reason, CURRENT_TIMESTAMP);
+    -- Log việc xóa với thông tin chi tiết
+    CALL LogProductEvent(
+        p_id,                           -- product_id
+        'product_status_changed',       -- event_type
+        CONCAT('Admin ', JSON_UNQUOTE(JSON_EXTRACT(v_admin_info, '$.username')), ' xóa mềm sản phẩm "', v_product_name, '": ', IFNULL(p_reason, 'Không có lý do')), -- event_description
+        CONCAT('{"status": ', v_current_status, ', "name": "', v_product_name, '"}'), -- old_data
+        CONCAT('{"status": 0, "name": "', v_product_name, '"}'), -- new_data
+        p_admin_id,                    -- user_id
+        JSON_UNQUOTE(JSON_EXTRACT(v_admin_info, '$.role')), -- user_type
+        NULL,                          -- ip_address (có thể mở rộng sau)
+        NULL,                          -- user_agent (có thể mở rộng sau)
+        'high',                        -- severity_level
+        '["product", "soft_delete", "admin_action", "security"]', -- tags
+        JSON_OBJECT(
+            'reason', IFNULL(p_reason, ''),
+            'action', 'soft_delete',
+            'package_count', v_package_count,
+            'admin_info', v_admin_info,
+            'validation_passed', true
+        ) -- additional_data
+    );
 
     COMMIT;
-    SELECT p_id as product_id, 'Xóa sản phẩm thành công' as message;
+    SELECT p_id as product_id, v_product_name as product_name, 'Xóa mềm sản phẩm thành công' as message;
 END//
 
 -- 9. DELETE - Xóa vĩnh viễn sản phẩm
@@ -3924,7 +4038,140 @@ BEGIN
     ORDER BY pp.price ASC, pp.created_at DESC;
 END//
 
--- 14. UTILITY - Cập nhật package và tự động cập nhật product totals
+-- 14. CREATE - Tạo package mới cho product đã có sẵn
+DROP PROCEDURE IF EXISTS CreatePackage//
+CREATE PROCEDURE CreatePackage(
+    IN p_product_id INT,
+    IN p_name VARCHAR(255),
+    IN p_description TEXT,
+    IN p_price DECIMAL(15,2),
+    IN p_old_price DECIMAL(15,2),
+    IN p_duration_days INT,
+    IN p_stock_quantity INT,
+    IN p_package_type VARCHAR(10),
+    IN p_details TEXT,
+    IN p_note TEXT,
+    IN p_max_cart_quantity TINYINT(1),
+    IN p_status TINYINT(1),
+    IN p_admin_id INT
+)
+BEGIN
+    DECLARE v_error_msg VARCHAR(255);
+    DECLARE v_vat_rate DECIMAL(4,3);
+    DECLARE v_package_id INT;
+    DECLARE v_admin_info JSON;
+    DECLARE v_new_data JSON;
+    
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+        BEGIN
+            GET DIAGNOSTICS CONDITION 1
+                v_error_msg = MESSAGE_TEXT;
+            ROLLBACK;
+            RESIGNAL SET MESSAGE_TEXT = v_error_msg;
+        END;
+
+    START TRANSACTION;
+
+    -- 1. KIỂM TRA ADMIN QUYỀN (nếu có admin_id)
+    IF p_admin_id IS NOT NULL THEN
+        IF NOT IsUserAdmin(p_admin_id) THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Người dùng không có quyền admin hoặc không tồn tại';
+        END IF;
+
+        IF NOT HasUserPermission(p_admin_id, 'manage_products') THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Không có quyền quản lý sản phẩm';
+        END IF;
+
+        SET v_admin_info = GetUserInfo(p_admin_id);
+    END IF;
+
+    -- 2. KIỂM TRA PRODUCT CÓ TỒN TẠI KHÔNG
+    IF NOT EXISTS(SELECT 1 FROM products WHERE id = p_product_id AND status = 1) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Product không tồn tại hoặc không hoạt động';
+    END IF;
+
+    -- 3. VALIDATION DỮ LIỆU
+    IF p_name IS NULL OR LENGTH(TRIM(p_name)) = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Tên package không được để trống';
+    END IF;
+
+    IF p_price IS NULL OR p_price <= 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Giá package phải lớn hơn 0';
+    END IF;
+
+    IF p_old_price IS NOT NULL AND p_old_price <= p_price THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Giá cũ phải lớn hơn giá hiện tại';
+    END IF;
+
+    -- 4. TÍNH VAT RATE DỰA TRÊN PACKAGE_TYPE
+    SET v_vat_rate = GetVatRate(IFNULL(p_package_type, 'sale'));
+
+    -- 5. TẠO PACKAGE MỚI
+    INSERT INTO product_packages (
+        product_id, name, description, price, old_price, duration_days,
+        stock_quantity, package_type, details, note, max_cart_quantity,
+        vat_rate, status, created_at, updated_at
+    ) VALUES (
+        p_product_id, 
+        p_name, 
+        p_description,
+        p_price, 
+        p_old_price, 
+        p_duration_days,
+        IFNULL(p_stock_quantity, 0),
+        IFNULL(p_package_type, 'sale'),
+        p_details,
+        p_note,
+        IFNULL(p_max_cart_quantity, 0),
+        v_vat_rate,
+        IFNULL(p_status, 1),
+        CURRENT_TIMESTAMP,
+        CURRENT_TIMESTAMP
+    );
+
+    SET v_package_id = LAST_INSERT_ID();
+
+    -- 6. CẬP NHẬT PRODUCT TOTALS (trigger sẽ tự động xử lý)
+    
+    -- 7. LOG VIỆC TẠO PACKAGE (nếu có admin_id)
+    IF p_admin_id IS NOT NULL THEN
+        SET v_new_data = JSON_OBJECT(
+            'package_id', v_package_id,
+            'product_id', p_product_id,
+            'name', p_name,
+            'price', p_price,
+            'old_price', p_old_price,
+            'package_type', IFNULL(p_package_type, 'sale'),
+            'stock_quantity', IFNULL(p_stock_quantity, 0),
+            'vat_rate', v_vat_rate
+        );
+
+        CALL LogPackageEvent(
+            v_package_id,               -- package_id
+            'package_created',          -- event_type
+            CONCAT('Admin ', JSON_UNQUOTE(JSON_EXTRACT(v_admin_info, '$.username')), ' tạo package mới: "', p_name, '"'), -- event_description
+            NULL,                       -- old_data
+            v_new_data,                 -- new_data
+            p_admin_id,                 -- user_id
+            JSON_UNQUOTE(JSON_EXTRACT(v_admin_info, '$.role')), -- user_type
+            NULL,                       -- ip_address
+            NULL,                       -- user_agent
+            'medium',                   -- severity_level
+            '["package", "create", "admin_action"]', -- tags
+            JSON_OBJECT(
+                'action', 'create_package',
+                'product_id', p_product_id,
+                'admin_info', v_admin_info,
+                'validation_passed', true
+            ) -- additional_data
+        );
+    END IF;
+
+    COMMIT;
+    SELECT v_package_id as package_id, p_product_id as product_id, 'Tạo package thành công' as message;
+END//
+
+-- 15. UTILITY - Cập nhật package và tự động cập nhật product totals
 DROP PROCEDURE IF EXISTS UpdatePackage//
 CREATE PROCEDURE UpdatePackage(
     IN p_package_id INT,
@@ -4046,21 +4293,21 @@ BEGIN
 
         -- Thống kê packages
         COUNT(pp.id) as total_packages,
-        COUNT(CASE WHEN pp.status = 1 THEN 1 END) as active_packages,
-        COUNT(CASE WHEN pp.package_type = 'sale' THEN 1 END) as sale_packages,
-        COUNT(CASE WHEN pp.package_type = 'rental' THEN 1 END) as rental_packages,
+        COUNT(CASE WHEN pp.status = 1 THEN 1 END)                               as active_packages,
+        COUNT(CASE WHEN pp.package_type = 'sale' THEN 1 END)                    as sale_packages,
+        COUNT(CASE WHEN pp.package_type = 'rental' THEN 1 END)                  as rental_packages,
 
         -- Thống kê giá
-        MIN(CASE WHEN pp.status = 1 THEN pp.price END) as min_price,
-        MAX(CASE WHEN pp.status = 1 THEN pp.price END) as max_price,
-        AVG(CASE WHEN pp.status = 1 THEN pp.price END) as avg_price,
+        MIN(CASE WHEN pp.status = 1 THEN pp.price END)        as min_price,
+        MAX(CASE WHEN pp.status = 1 THEN pp.price END)        as max_price,
+        AVG(CASE WHEN pp.status = 1 THEN pp.price END)        as avg_price,
 
         -- Thống kê tồn kho
-        SUM(CASE WHEN pp.status = 1 THEN pp.stock_quantity ELSE 0 END) as total_stock,
-        SUM(CASE WHEN pp.status = 1 THEN pp.sold_count ELSE 0 END) as total_sold,
+        SUM(IF(pp.status = 1, pp.stock_quantity, 0))          as total_stock,
+        SUM(IF(pp.status = 1, pp.sold_count, 0))              as total_sold,
 
         -- Thống kê doanh thu ước tính
-        SUM(CASE WHEN pp.status = 1 THEN (pp.sold_count * pp.price) ELSE 0 END) as estimated_revenue,
+        SUM(IF(pp.status = 1, (pp.sold_count * pp.price), 0)) as estimated_revenue,
 
         p.created_at,
         p.updated_at
@@ -4420,7 +4667,7 @@ DROP PROCEDURE IF EXISTS GetVatSettings//
 CREATE PROCEDURE GetVatSettings()
 BEGIN
     SELECT id, package_type, vat_rate, description, is_active, created_at, updated_at
-    FROM vat_settings 
+    FROM vat_settings
     ORDER BY package_type;
 END//
 
@@ -4484,13 +4731,616 @@ BEGIN
     END IF;
 
     -- Cập nhật trạng thái
-    UPDATE vat_settings 
+    UPDATE vat_settings
     SET is_active = p_is_active,
         updated_at = CURRENT_TIMESTAMP
     WHERE package_type = p_package_type;
 
     COMMIT;
     SELECT p_package_type as package_type, p_is_active as is_active, 'Cập nhật trạng thái VAT thành công' as message;
+END//
+
+-- =============================
+-- BẢNG LOGS SẢN PHẨM VÀ GÓI (PRODUCT_LOGS)
+-- =============================
+DROP TABLE IF EXISTS product_logs;
+CREATE TABLE product_logs
+(
+    id               INT PRIMARY KEY AUTO_INCREMENT,
+    
+    -- Đối tượng bị ảnh hưởng
+    product_id       INT,                           -- Product bị thay đổi (nullable)
+    package_id       INT,                           -- Package bị thay đổi (nullable)
+    category_id      INT,                           -- Category bị thay đổi (nullable)
+    
+    -- Loại sự kiện
+    event_type       ENUM(
+        -- Product events
+        'product_created', 'product_updated', 'product_deleted', 'product_status_changed',
+        'price_changed', 'stock_changed', 'sold_count_changed',
+        'category_changed', 'image_changed', 'description_changed',
+        
+        -- Package events
+        'package_created', 'package_updated', 'package_deleted', 'package_status_changed',
+        'package_type_changed', 'vat_rate_changed',
+        
+        -- Category events (NEW)
+        'category_created', 'category_updated', 'category_deleted', 'category_status_changed',
+        'category_parent_changed', 'category_display_order_changed', 'category_featured_changed',
+        'category_meta_updated', 'category_image_changed',
+        
+        -- Review/Interaction events
+        'review_added', 'review_updated', 'review_deleted',
+        'favorite_added', 'favorite_removed',
+        'comment_added', 'comment_updated', 'comment_deleted',
+        
+        -- Order events
+        'order_placed', 'order_cancelled', 'order_completed',
+        'stock_replenished', 'stock_depleted',
+        'promotion_applied', 'promotion_removed'
+    ) NOT NULL,
+    
+    -- Chi tiết sự kiện
+    event_description TEXT,                         -- Mô tả chi tiết sự kiện
+    
+    -- Dữ liệu trước và sau thay đổi (JSON format)
+    old_data         JSON COMMENT 'Dữ liệu trước khi thay đổi',
+    new_data         JSON COMMENT 'Dữ liệu sau khi thay đổi',
+    
+    -- Metadata
+    user_id          INT,                          -- User thực hiện thay đổi (NULL nếu system)
+    user_type        ENUM('admin', 'customer', 'system') DEFAULT 'system' COMMENT 'Loại user thực hiện',
+    ip_address       VARCHAR(45),                  -- IP thực hiện hành động
+    user_agent       TEXT,                         -- Browser/App thực hiện
+    
+    -- Thông tin bổ sung
+    severity_level   ENUM('low', 'medium', 'high', 'critical') DEFAULT 'medium' COMMENT 'Mức độ quan trọng',
+    tags             JSON COMMENT 'Tags để phân loại log (array)',
+    additional_data  JSON COMMENT 'Dữ liệu bổ sung khác',
+    
+    -- Timestamp
+    created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Foreign keys
+    FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE SET NULL,
+    FOREIGN KEY (package_id) REFERENCES product_packages (id) ON DELETE SET NULL,
+    FOREIGN KEY (category_id) REFERENCES product_categories (id) ON DELETE SET NULL,
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL,
+    
+    -- Indexes for performance
+    INDEX idx_product_id (product_id),
+    INDEX idx_package_id (package_id),
+    INDEX idx_category_id (category_id),
+    INDEX idx_event_type (event_type),
+    INDEX idx_user_id (user_id),
+    INDEX idx_created_at (created_at),
+    INDEX idx_severity (severity_level),
+    INDEX idx_user_type (user_type),
+    INDEX idx_product_event (product_id, event_type, created_at),
+    INDEX idx_package_event (package_id, event_type, created_at),
+    INDEX idx_category_event (category_id, event_type, created_at)
+);
+
+-- =============================
+-- STORED PROCEDURES CHO PRODUCT LOGS
+-- =============================
+
+-- 1. Log sự kiện cho Product
+DROP PROCEDURE IF EXISTS LogProductEvent//
+CREATE PROCEDURE LogProductEvent(
+    IN p_product_id INT,
+    IN p_event_type VARCHAR(50),
+    IN p_event_description TEXT,
+    IN p_old_data JSON,
+    IN p_new_data JSON,
+    IN p_user_id INT,
+    IN p_user_type VARCHAR(20),
+    IN p_ip_address VARCHAR(45),
+    IN p_user_agent TEXT,
+    IN p_severity_level VARCHAR(20),
+    IN p_tags JSON,
+    IN p_additional_data JSON
+)
+BEGIN
+    INSERT INTO product_logs (
+        product_id, event_type, event_description, old_data, new_data,
+        user_id, user_type, ip_address, user_agent, severity_level,
+        tags, additional_data
+    ) VALUES (
+        p_product_id, p_event_type, p_event_description, p_old_data, p_new_data,
+        p_user_id, IFNULL(p_user_type, 'system'), p_ip_address, p_user_agent,
+        IFNULL(p_severity_level, 'medium'), p_tags, p_additional_data
+    );
+    
+    SELECT LAST_INSERT_ID() as log_id, 'Log sự kiện product thành công' as message;
+END//
+
+-- 2. Log sự kiện cho Package
+DROP PROCEDURE IF EXISTS LogPackageEvent//
+CREATE PROCEDURE LogPackageEvent(
+    IN p_package_id INT,
+    IN p_event_type VARCHAR(50),
+    IN p_event_description TEXT,
+    IN p_old_data JSON,
+    IN p_new_data JSON,
+    IN p_user_id INT,
+    IN p_user_type VARCHAR(20),
+    IN p_ip_address VARCHAR(45),
+    IN p_user_agent TEXT,
+    IN p_severity_level VARCHAR(20),
+    IN p_tags JSON,
+    IN p_additional_data JSON
+)
+BEGIN
+    DECLARE v_product_id INT;
+    
+    -- Lấy product_id từ package_id
+    SELECT product_id INTO v_product_id FROM product_packages WHERE id = p_package_id;
+    
+    INSERT INTO product_logs (
+        product_id, package_id, event_type, event_description, old_data, new_data,
+        user_id, user_type, ip_address, user_agent, severity_level,
+        tags, additional_data
+    ) VALUES (
+        v_product_id, p_package_id, p_event_type, p_event_description, p_old_data, p_new_data,
+        p_user_id, IFNULL(p_user_type, 'system'), p_ip_address, p_user_agent,
+        IFNULL(p_severity_level, 'medium'), p_tags, p_additional_data
+    );
+    
+    SELECT LAST_INSERT_ID() as log_id, 'Log sự kiện package thành công' as message;
+END//
+
+-- 3. Log sự kiện cho Category
+DROP PROCEDURE IF EXISTS LogCategoryEvent//
+CREATE PROCEDURE LogCategoryEvent(
+    IN p_category_id INT,
+    IN p_event_type VARCHAR(50),
+    IN p_event_description TEXT,
+    IN p_old_data JSON,
+    IN p_new_data JSON,
+    IN p_user_id INT,
+    IN p_user_type VARCHAR(20),
+    IN p_ip_address VARCHAR(45),
+    IN p_user_agent TEXT,
+    IN p_severity_level VARCHAR(20),
+    IN p_tags JSON,
+    IN p_additional_data JSON
+)
+BEGIN
+    INSERT INTO product_logs (
+        category_id, event_type, event_description, old_data, new_data,
+        user_id, user_type, ip_address, user_agent, severity_level,
+        tags, additional_data
+    ) VALUES (
+        p_category_id, p_event_type, p_event_description, p_old_data, p_new_data,
+        p_user_id, IFNULL(p_user_type, 'system'), p_ip_address, p_user_agent,
+        IFNULL(p_severity_level, 'medium'), p_tags, p_additional_data
+    );
+    
+    SELECT LAST_INSERT_ID() as log_id, 'Log sự kiện category thành công' as message;
+END//
+
+-- 4. Lấy logs theo Product
+DROP PROCEDURE IF EXISTS GetProductLogs//
+CREATE PROCEDURE GetProductLogs(
+    IN p_product_id INT,
+    IN p_limit INT,
+    IN p_offset INT,
+    IN p_event_type VARCHAR(50),
+    IN p_severity_level VARCHAR(20),
+    IN p_start_date DATETIME,
+    IN p_end_date DATETIME
+)
+BEGIN
+    DECLARE v_sql TEXT;
+    
+    SET v_sql = CONCAT(
+        'SELECT ',
+            'pl.id, pl.product_id, pl.package_id, pl.event_type, pl.event_description, ',
+            'pl.old_data, pl.new_data, pl.user_id, pl.user_type, pl.ip_address, pl.user_agent, ',
+            'pl.severity_level, pl.tags, pl.additional_data, pl.created_at, ',
+            'u.username, u.email, ',
+            'pp.name as package_name, pp.price as package_price, ',
+            'p.name as product_name, p.slug as product_slug ',
+        'FROM product_logs pl ',
+        'LEFT JOIN users u ON pl.user_id = u.id ',
+        'LEFT JOIN product_packages pp ON pl.package_id = pp.id ',
+        'LEFT JOIN products p ON pl.product_id = p.id ',
+        'WHERE pl.product_id = ', p_product_id
+    );
+    
+    IF p_event_type IS NOT NULL THEN
+        SET v_sql = CONCAT(v_sql, ' AND pl.event_type = ''', p_event_type, '''');
+    END IF;
+    
+    IF p_severity_level IS NOT NULL THEN
+        SET v_sql = CONCAT(v_sql, ' AND pl.severity_level = ''', p_severity_level, '''');
+    END IF;
+    
+    IF p_start_date IS NOT NULL THEN
+        SET v_sql = CONCAT(v_sql, ' AND pl.created_at >= ''', p_start_date, '''');
+    END IF;
+    
+    IF p_end_date IS NOT NULL THEN
+        SET v_sql = CONCAT(v_sql, ' AND pl.created_at <= ''', p_end_date, '''');
+    END IF;
+    
+    SET v_sql = CONCAT(v_sql, ' ORDER BY pl.created_at DESC');
+    
+    IF p_limit IS NOT NULL THEN
+        SET v_sql = CONCAT(v_sql, ' LIMIT ', IFNULL(p_limit, 50));
+        IF p_offset IS NOT NULL THEN
+            SET v_sql = CONCAT(v_sql, ' OFFSET ', IFNULL(p_offset, 0));
+        END IF;
+    END IF;
+    
+    SET @sql_query = v_sql;
+    PREPARE stmt FROM @sql_query;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
+END//
+
+-- 4. Lấy logs theo Package
+DROP PROCEDURE IF EXISTS GetPackageLogs//
+CREATE PROCEDURE GetPackageLogs(
+    IN p_package_id INT,
+    IN p_limit INT,
+    IN p_offset INT,
+    IN p_event_type VARCHAR(50),
+    IN p_severity_level VARCHAR(20),
+    IN p_start_date DATETIME,
+    IN p_end_date DATETIME
+)
+BEGIN
+    DECLARE v_sql TEXT;
+    
+    SET v_sql = CONCAT(
+        'SELECT ',
+            'pl.id, pl.product_id, pl.package_id, pl.event_type, pl.event_description, ',
+            'pl.old_data, pl.new_data, pl.user_id, pl.user_type, pl.ip_address, pl.user_agent, ',
+            'pl.severity_level, pl.tags, pl.additional_data, pl.created_at, ',
+            'u.username, u.email, ',
+            'pp.name as package_name, pp.price as package_price, pp.package_type, ',
+            'p.name as product_name, p.slug as product_slug ',
+        'FROM product_logs pl ',
+        'LEFT JOIN users u ON pl.user_id = u.id ',
+        'LEFT JOIN product_packages pp ON pl.package_id = pp.id ',
+        'LEFT JOIN products p ON pl.product_id = p.id ',
+        'WHERE pl.package_id = ', p_package_id
+    );
+    
+    IF p_event_type IS NOT NULL THEN
+        SET v_sql = CONCAT(v_sql, ' AND pl.event_type = ''', p_event_type, '''');
+    END IF;
+    
+    IF p_severity_level IS NOT NULL THEN
+        SET v_sql = CONCAT(v_sql, ' AND pl.severity_level = ''', p_severity_level, '''');
+    END IF;
+    
+    IF p_start_date IS NOT NULL THEN
+        SET v_sql = CONCAT(v_sql, ' AND pl.created_at >= ''', p_start_date, '''');
+    END IF;
+    
+    IF p_end_date IS NOT NULL THEN
+        SET v_sql = CONCAT(v_sql, ' AND pl.created_at <= ''', p_end_date, '''');
+    END IF;
+    
+    SET v_sql = CONCAT(v_sql, ' ORDER BY pl.created_at DESC');
+    
+    IF p_limit IS NOT NULL THEN
+        SET v_sql = CONCAT(v_sql, ' LIMIT ', IFNULL(p_limit, 50));
+        IF p_offset IS NOT NULL THEN
+            SET v_sql = CONCAT(v_sql, ' OFFSET ', IFNULL(p_offset, 0));
+        END IF;
+    END IF;
+    
+    SET @sql_query = v_sql;
+    PREPARE stmt FROM @sql_query;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
+END//
+
+-- 5. Lấy logs theo Category
+DROP PROCEDURE IF EXISTS GetCategoryLogs//
+CREATE PROCEDURE GetCategoryLogs(
+    IN p_category_id INT,
+    IN p_limit INT,
+    IN p_offset INT,
+    IN p_event_type VARCHAR(50),
+    IN p_severity_level VARCHAR(20),
+    IN p_start_date DATETIME,
+    IN p_end_date DATETIME
+)
+BEGIN
+    DECLARE v_sql TEXT;
+    
+    SET v_sql = CONCAT(
+        'SELECT ',
+            'pl.id, pl.category_id, pl.event_type, pl.event_description, ',
+            'pl.old_data, pl.new_data, pl.user_id, pl.user_type, pl.ip_address, pl.user_agent, ',
+            'pl.severity_level, pl.tags, pl.additional_data, pl.created_at, ',
+            'u.username, u.email, ',
+            'pc.name as category_name, pc.slug as category_slug, pc.parent_id, ',
+            'parent_cat.name as parent_category_name ',
+        'FROM product_logs pl ',
+        'LEFT JOIN users u ON pl.user_id = u.id ',
+        'LEFT JOIN product_categories pc ON pl.category_id = pc.id ',
+        'LEFT JOIN product_categories parent_cat ON pc.parent_id = parent_cat.id ',
+        'WHERE pl.category_id = ', p_category_id
+    );
+    
+    IF p_event_type IS NOT NULL THEN
+        SET v_sql = CONCAT(v_sql, ' AND pl.event_type = ''', p_event_type, '''');
+    END IF;
+    
+    IF p_severity_level IS NOT NULL THEN
+        SET v_sql = CONCAT(v_sql, ' AND pl.severity_level = ''', p_severity_level, '''');
+    END IF;
+    
+    IF p_start_date IS NOT NULL THEN
+        SET v_sql = CONCAT(v_sql, ' AND pl.created_at >= ''', p_start_date, '''');
+    END IF;
+    
+    IF p_end_date IS NOT NULL THEN
+        SET v_sql = CONCAT(v_sql, ' AND pl.created_at <= ''', p_end_date, '''');
+    END IF;
+    
+    SET v_sql = CONCAT(v_sql, ' ORDER BY pl.created_at DESC');
+    
+    IF p_limit IS NOT NULL THEN
+        SET v_sql = CONCAT(v_sql, ' LIMIT ', IFNULL(p_limit, 50));
+        IF p_offset IS NOT NULL THEN
+            SET v_sql = CONCAT(v_sql, ' OFFSET ', IFNULL(p_offset, 0));
+        END IF;
+    END IF;
+    
+    SET @sql_query = v_sql;
+    PREPARE stmt FROM @sql_query;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
+END//
+
+-- 6. Thống kê logs
+DROP PROCEDURE IF EXISTS GetLogStatistics//
+CREATE PROCEDURE GetLogStatistics(
+    IN p_product_id INT,
+    IN p_package_id INT,
+    IN p_start_date DATETIME,
+    IN p_end_date DATETIME
+)
+BEGIN
+    SELECT 
+        event_type,
+        severity_level,
+        COUNT(*) as event_count,
+        COUNT(DISTINCT user_id) as unique_users,
+        MIN(created_at) as first_occurrence,
+        MAX(created_at) as last_occurrence
+    FROM product_logs
+    WHERE (p_product_id IS NULL OR product_id = p_product_id)
+        AND (p_package_id IS NULL OR package_id = p_package_id)
+        AND (p_start_date IS NULL OR created_at >= p_start_date)
+        AND (p_end_date IS NULL OR created_at <= p_end_date)
+    GROUP BY event_type, severity_level
+    ORDER BY event_count DESC, event_type;
+END//
+
+-- 6. Dọn dẹp logs cũ
+DROP PROCEDURE IF EXISTS CleanupOldLogs//
+CREATE PROCEDURE CleanupOldLogs(
+    IN p_days_to_keep INT,
+    IN p_severity_to_keep VARCHAR(20),
+    IN p_dry_run BOOLEAN
+)
+BEGIN
+    DECLARE v_cutoff_date DATETIME;
+    DECLARE v_delete_count INT;
+    
+    SET v_cutoff_date = DATE_SUB(NOW(), INTERVAL IFNULL(p_days_to_keep, 90) DAY);
+    
+    -- Đếm số bản ghi sẽ bị xóa
+    SELECT COUNT(*) INTO v_delete_count
+    FROM product_logs
+    WHERE created_at < v_cutoff_date
+        AND (p_severity_to_keep IS NULL OR severity_level != p_severity_to_keep);
+    
+    IF p_dry_run THEN
+        SELECT v_delete_count as records_to_delete, v_cutoff_date as cutoff_date, 'DRY RUN - No data deleted' as message;
+    ELSE
+        DELETE FROM product_logs
+        WHERE created_at < v_cutoff_date
+            AND (p_severity_to_keep IS NULL OR severity_level != p_severity_to_keep);
+        
+        SELECT v_delete_count as records_deleted, v_cutoff_date as cutoff_date, 'Cleanup completed' as message;
+    END IF;
+END//
+
+-- =============================
+-- ADMIN VALIDATION FUNCTIONS
+-- =============================
+
+-- 1. Check if user exists and is admin/staff (enhanced với session validation)
+DROP FUNCTION IF EXISTS IsUserAdmin//
+CREATE FUNCTION IsUserAdmin(p_user_id INT)
+RETURNS BOOLEAN
+READS SQL DATA
+DETERMINISTIC
+BEGIN
+    DECLARE v_role ENUM('customer', 'admin', 'staff');
+    DECLARE v_status ENUM('active', 'inactive', 'banned');
+    DECLARE v_locked_until TIMESTAMP;
+    DECLARE v_deleted_at TIMESTAMP;
+    
+    -- Lấy đầy đủ thông tin user để validate
+    SELECT role, status, locked_until, deleted_at 
+    INTO v_role, v_status, v_locked_until, v_deleted_at
+    FROM users 
+    WHERE id = p_user_id;
+    
+    -- Comprehensive validation:
+    -- 1. User phải tồn tại
+    IF v_role IS NULL THEN
+        RETURN FALSE;
+    END IF;
+    
+    -- 2. Không bị soft delete
+    IF v_deleted_at IS NOT NULL THEN
+        RETURN FALSE;
+    END IF;
+    
+    -- 3. Status phải active
+    IF v_status != 'active' THEN
+        RETURN FALSE;
+    END IF;
+    
+    -- 4. Không bị lock
+    IF v_locked_until IS NOT NULL AND v_locked_until > NOW() THEN
+        RETURN FALSE;
+    END IF;
+    
+    -- 5. Role phải là admin/staff
+    RETURN (v_role IN ('admin', 'staff'));
+END//
+
+-- 2. Check if user has specific permission
+DROP FUNCTION IF EXISTS HasUserPermission//
+CREATE FUNCTION HasUserPermission(p_user_id INT, p_permission VARCHAR(100))
+RETURNS BOOLEAN
+READS SQL DATA
+DETERMINISTIC
+BEGIN
+    DECLARE v_role ENUM('customer', 'admin', 'staff');
+    DECLARE v_permissions JSON;
+    DECLARE v_has_permission BOOLEAN DEFAULT FALSE;
+    
+    SELECT role, permissions INTO v_role, v_permissions
+    FROM users 
+    WHERE id = p_user_id AND status = 'active' AND deleted_at IS NULL;
+    
+    -- Admin có tất cả permissions
+    IF v_role = 'admin' THEN
+        RETURN TRUE;
+    END IF;
+    
+    -- Staff check theo permissions JSON
+    IF v_role = 'staff' AND v_permissions IS NOT NULL THEN
+        SET v_has_permission = COALESCE(JSON_EXTRACT(v_permissions, CONCAT('$.', p_permission)), FALSE);
+        RETURN v_has_permission;
+    END IF;
+    
+    RETURN FALSE;
+END//
+
+-- 3. Get user info for logging
+DROP FUNCTION IF EXISTS GetUserInfo//
+CREATE FUNCTION GetUserInfo(p_user_id INT)
+RETURNS JSON
+READS SQL DATA
+DETERMINISTIC
+BEGIN
+    DECLARE v_user_info JSON;
+    
+    SELECT JSON_OBJECT(
+        'id', id,
+        'username', username,
+        'role', role,
+        'status', status,
+        'full_name', full_name,
+        'email', email
+    ) INTO v_user_info
+    FROM users 
+    WHERE id = p_user_id AND deleted_at IS NULL;
+    
+    RETURN IFNULL(v_user_info, JSON_OBJECT('error', 'User not found'));
+END//
+
+-- 4. Session-aware validation (for API calls with JWT)
+DROP FUNCTION IF EXISTS ValidateUserSession//
+CREATE FUNCTION ValidateUserSession(
+    p_user_id INT,
+    p_require_admin BOOLEAN,
+    p_required_permission VARCHAR(100)
+)
+RETURNS JSON
+READS SQL DATA
+DETERMINISTIC
+BEGIN
+    DECLARE v_result JSON;
+    DECLARE v_is_valid BOOLEAN DEFAULT FALSE;
+    DECLARE v_error_msg VARCHAR(255) DEFAULT '';
+    DECLARE v_user_info JSON;
+    
+    -- 1. Basic user validation
+    IF NOT IsUserAdmin(p_user_id) AND p_require_admin THEN
+        SET v_error_msg = 'Access denied: Admin privileges required';
+    ELSEIF p_required_permission IS NOT NULL AND NOT HasUserPermission(p_user_id, p_required_permission) THEN
+        SET v_error_msg = CONCAT('Access denied: Permission "', p_required_permission, '" required');
+    ELSE
+        SET v_is_valid = TRUE;
+        SET v_user_info = GetUserInfo(p_user_id);
+    END IF;
+    
+    -- Return validation result
+    SET v_result = JSON_OBJECT(
+        'valid', v_is_valid,
+        'error', IF(v_is_valid, NULL, v_error_msg),
+        'user_info', IF(v_is_valid, v_user_info, NULL),
+        'timestamp', NOW()
+    );
+    
+    RETURN v_result;
+END//
+
+-- 5. Lightweight check (for performance-critical operations)
+DROP FUNCTION IF EXISTS QuickAuthCheck//
+CREATE FUNCTION QuickAuthCheck(p_user_id INT, p_required_role VARCHAR(20))
+RETURNS BOOLEAN
+READS SQL DATA
+DETERMINISTIC
+BEGIN
+    DECLARE v_role VARCHAR(20);
+    DECLARE v_status VARCHAR(20);
+    
+    SELECT role, status INTO v_role, v_status
+    FROM users 
+    WHERE id = p_user_id AND deleted_at IS NULL AND locked_until IS NULL;
+    
+    IF p_required_role = 'admin' THEN
+        RETURN (v_role IN ('admin', 'staff') AND v_status = 'active');
+    ELSEIF p_required_role = 'any' THEN
+        RETURN (v_role IN ('admin', 'staff', 'customer') AND v_status = 'active');
+    ELSE
+        RETURN (v_role = p_required_role AND v_status = 'active');
+    END IF;
+END//
+
+-- 10. Quick Log Helper - Log đơn giản cho các thao tác nhanh
+DROP PROCEDURE IF EXISTS QuickLogProductAction//
+CREATE PROCEDURE QuickLogProductAction(
+    IN p_product_id INT,
+    IN p_action VARCHAR(50),
+    IN p_description TEXT,
+    IN p_user_id INT,
+    IN p_user_type VARCHAR(20),
+    IN p_severity VARCHAR(20)
+)
+BEGIN
+    CALL LogProductEvent(
+        p_product_id,
+        p_action,
+        p_description,
+        NULL,                           -- old_data
+        NULL,                           -- new_data
+        p_user_id,
+        IFNULL(p_user_type, 'admin'),
+        NULL,                           -- ip_address
+        NULL,                           -- user_agent
+        IFNULL(p_severity, 'medium'),
+        CONCAT('["', p_action, '", "quick_log"]'),
+        CONCAT('{"quick_action": "', p_action, '"}')
+    );
+    
+    SELECT 'Quick log recorded successfully' as message;
 END//
 
 DELIMITER ;
